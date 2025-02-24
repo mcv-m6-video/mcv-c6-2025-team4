@@ -123,3 +123,19 @@ class AdaptiveGaussianModel:
         mask = self.classify_frame(frame)
         self.update_background(frame, mask)
         return mask
+
+import cv2
+import numpy as np
+
+class GMMBackgroundSubtractor:
+    def __init__(self, history=500, varThreshold=16, detectShadows=True):
+        self.backSub = cv2.createBackgroundSubtractorMOG2(history=history,
+                                                          varThreshold=varThreshold,
+                                                          detectShadows=detectShadows)
+
+    def apply(self, frame, learningRate=-1):
+        fg_mask = self.backSub.apply(frame, learningRate=learningRate)
+        return fg_mask
+
+    def get_background(self):
+        return self.backSub.getBackgroundImage()

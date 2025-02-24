@@ -2,6 +2,7 @@ from src import gaussian_modelling, load_data, metrics, read_data
 import os
 import cv2
 import numpy as np
+from tqdm import tqdm
 
 from src.load_data import load_video_frame, load_frames_list
 
@@ -67,7 +68,7 @@ video_path = os.path.join(path, "vdo.avi")
 total_frames = load_data.get_total_frames(video_path)
 
 # Creamos la instancia del modelo gaussiano adaptativo
-adaptive_model = gaussian_modelling.AdaptiveGaussianModel(rho=0.01, threshold_factor=6)
+adaptive_model = gaussian_modelling.AdaptiveGaussianModel(rho=0.01, threshold_factor=13)
 
 # Determinamos el número total de frames del video
 total_frames = load_data.get_total_frames(video_path)
@@ -97,10 +98,14 @@ for item in gt_data:
 temporal_filter = RealTimeTemporalMedianFilter(window_size=5)
 
 ap_list = []
+all_pred_boxes = []
+all_gt_boxes = []
+
+f = open("adaptive.txt", "w+")
 
 # Procesamos los frames de prueba (el 75% restante)
 test_frames = load_frames_list(video_path, start=training_end, end=total_frames)
-for idx, frame_rgb in enumerate(test_frames, start=training_end):
+for idx, frame_rgb in tqdm(enumerate(test_frames, start=training_end)):
 
     # Procesamos el frame: se obtiene la máscara de fondo y se actualiza el modelo de forma adaptativa
     background_mask = adaptive_model.process_frame(frame_rgb)
@@ -113,37 +118,37 @@ for idx, frame_rgb in enumerate(test_frames, start=training_end):
 
     # Extraer bounding boxes a partir de la máscara de primer plano (suponiendo que metrics.extract_bounding_boxes esté definido)
     pred_boxes = metrics.extract_bounding_boxes(background_mask, min_area=500)
-
-    # Obtenemos las cajas de GT para el frame actual (si están disponibles)
     gt_boxes = gt_dict.get(idx, [])
+
+    # Append boxes for video-level AP calculation
+    all_pred_boxes.append(pred_boxes)
+    all_gt_boxes.append(gt_boxes)
 
     # Evaluamos a nivel de bounding box (IoU, precisión, recall)
     if gt_boxes:
         precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
         avg_iou = np.mean(iou_list) if iou_list else 0.0
-        print(f"Frame {idx}: Precision={precision:.2f}, Recall={recall:.2f}, Avg IoU={avg_iou:.2f}, TP={tp}, FP={fp}, FN={fn}")
-
-        # Calculamos el Average Precision (AP) para el frame actual.
-        # Se asume que metrics.compute_frame_average_precision devuelve un valor entre 0 y 1.
-        ap = metrics.compute_frame_average_precision(pred_boxes, gt_boxes, iou_threshold=0.5)
-        ap_list.append(ap)
-        print(f"Frame {idx}: AP={ap:.2f}")
-    else:
-        print(f"Frame {idx}: No hay GT disponible.")
+        #print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
+        #f.write(f"{idx}: Avg IoU={avg_iou:.2f}\n")
+    #else:
+        #print(f"Frame {idx}: No hay GT disponible.")
 
     # Para evaluación a nivel de píxel: comparamos la máscara predicha con la máscara GT
-    if gt_boxes:
-        gt_mask = metrics.generate_gt_mask(frame_rgb.shape, gt_boxes)
-        TPR, FPR = metrics.compute_pixel_metrics(background_mask, gt_mask)
-        print(f"Frame {idx}: Métricas a nivel de píxel - TPR={TPR:.2f}, FPR={FPR:.2f}")
+    #if gt_boxes:
+    #    gt_mask = metrics.generate_gt_mask(frame_rgb.shape, gt_boxes)
+    #    TPR, FPR = metrics.compute_pixel_metrics(background_mask, gt_mask)
+    #    print(f"Frame {idx}: Métricas a nivel de píxel - TPR={TPR:.2f}, FPR={FPR:.2f}")
 
     # Visualización: dibujar los bounding boxes predichos en el frame
     for box in pred_boxes:
         cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
-    cv2.imshow("Frame con Detecciones", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+    #cv2.imshow("Frame con Detecciones", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
     #cv2.imshow("Máscara de Primer Plano", background_mask)
     key = cv2.waitKey(90) & 0xFF
     if key == 27:  # ESC para salir
         break
+
+video_ap = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
+print(f"Video mAP (AP for class 'car'): {video_ap:.4f}")
 
 cv2.destroyAllWindows()
