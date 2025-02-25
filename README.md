@@ -56,3 +56,23 @@ You can install all the required dependencies by using the `requirements.txt` fi
    git clone https://github.com/yourusername/background-estimation.git
    cd background-estimation
 
+2. Install the required dependencies using pip:
+   ```bash
+   pip install -r requirements.txt
+   
+## Usage
+
+# Running Adaptive Model
+To run the adaptive background estimation model, execute the following command:
+   ```bash
+python main.py  
+```
+This will process the video sequence using the adaptive model, updating the Gaussian parameters over time.
+
+# Running Non-Adaptive Model
+To run the non-adaptive background estimation model, execute the following command:
+ ```bash
+
+python main_nonadaptive.py 
+```
+This will process the video sequence using the non-adaptive model, where the Gaussian parameters are fixed.
