@@ -1,2 +1,8 @@
 data/
-.idea/
+.venv/
+output_videos/
+subsense/
+bgsCNN/
+model*/
+tf_env/
+bgs*/
