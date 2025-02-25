@@ -98,26 +98,69 @@ def compute_iou(boxA, boxB):
     iou = interArea / float(boxAArea + boxBArea - interArea + 1e-6)
     return iou
 
-def compute_frame_average_precision(pred_boxes, gt_boxes, iou_threshold=0.5):
+def compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5):
     """
-    Calcula el Average Precision (AP) para un frame dado.
-    Se utiliza un matching greedy: para cada caja predicha se busca la caja GT no asignada
-    con IoU >= iou_threshold. Si se encuentra, se cuenta como TP.
-    Luego se define:
-        AP = (número de TP) / (número total de cajas GT)
-    Si no hay cajas GT, se define AP = 1.0 si no hay detecciones o 0.0 si existen detecciones.
+    Calculate Average Precision (AP) over the entire video.
+
+    Parameters:
+        all_pred_boxes: List of predictions across all frames (list of lists).
+        all_gt_boxes: List of ground truths across all frames (list of lists).
+        iou_threshold: IoU threshold for TP determination.
+
+    Returns:
+        Average Precision (AP) for the video.
     """
-    matched = [False] * len(gt_boxes)
-    tp = 0
-    for pred in pred_boxes:
-        for i, gt in enumerate(gt_boxes):
-            if not matched[i] and compute_iou(pred, gt) >= iou_threshold:
-                matched[i] = True
-                tp += 1
-                break
-    if len(gt_boxes) == 0:
-        return 1.0 if len(pred_boxes) == 0 else 0.0
-    return tp / len(gt_boxes)
+    pred_data = []
+
+    # Create a list of predictions with frame indices and a fixed dummy confidence (e.g., 1.0)
+    for frame_idx, preds in enumerate(all_pred_boxes):
+        for box in preds:
+            pred_data.append({"frame": frame_idx, "bbox": box, "score": 1.0})
+
+    # Sort predictions by score (if scores are available, else this step can be skipped)
+    pred_data.sort(key=lambda x: x['score'], reverse=True)
+
+    tp = np.zeros(len(pred_data))
+    fp = np.zeros(len(pred_data))
+
+    detected_gt = {}
+    total_gt = sum(len(boxes) for boxes in all_gt_boxes)
+
+    for idx, pred in enumerate(pred_data):
+        frame = pred['frame']
+        max_iou = 0
+        max_gt_idx = -1
+
+        if frame not in detected_gt:
+            detected_gt[frame] = np.zeros(len(all_gt_boxes[frame]), dtype=bool)
+
+        for gt_idx, gt_box in enumerate(all_gt_boxes[frame]):
+            iou = compute_iou(pred['bbox'], gt_box)
+            if iou > max_iou:
+                max_iou = iou
+                max_gt_idx = gt_idx
+
+        if max_iou >= iou_threshold and not detected_gt[frame][max_gt_idx]:
+            tp[idx] = 1
+            detected_gt[frame][max_gt_idx] = True
+        else:
+            fp[idx] = 1
+
+    # Compute cumulative sums
+    cum_tp = np.cumsum(tp)
+    cum_fp = np.cumsum(fp)
+
+    # Compute Precision and Recall
+    precision = cum_tp / (cum_tp + cum_fp + 1e-6)
+    recall = cum_tp / (total_gt + 1e-6)
+
+    # Interpolated precision
+    ap = 0.0
+    for t in np.linspace(0, 1, 11):
+        p = precision[recall >= t].max() if np.any(recall >= t) else 0
+        ap += p / 11
+
+    return ap
 
 
 def ensure_box_list(boxes):

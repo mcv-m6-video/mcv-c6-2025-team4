@@ -6,3 +6,8 @@ bgsCNN/
 model*/
 tf_env/
 bgs*/
+
+.idea/
+GMM.txt
+GMM Method Video mAP.txt
+adaptive.txt

@@ -2,11 +2,10 @@ from src import gaussian_modelling, load_data, metrics, read_data
 import os
 import cv2
 import numpy as np
-from tqdm import tqdm
 
 from src.load_data import load_video_frame, load_frames_list
 
-def improved_classify_frame(frame, background_mean, background_variance, threshold_factor=6, min_area=500):
+def improved_classify_frame(frame, background_mean, background_variance, threshold_factor=8, min_area=500):
     # Convert inputs to float for precision
     frame_float = frame.astype(np.float32)
     bg_mean_float = background_mean.astype(np.float32)
@@ -64,21 +63,22 @@ path_detection = ["./data/AICity_data/train/S03/c010/det/det_mask_rcnn.txt",
 
 video_path = os.path.join(path, "vdo.avi")
 
-gaussian_model = gaussian_modelling.NonRecursiveGaussianModel()
-
 # Determine the total number of frames in the video.
 total_frames = load_data.get_total_frames(video_path)
 
+# Creamos la instancia del modelo gaussiano adaptativo
+
+# Determinamos el número total de frames del video
+total_frames = load_data.get_total_frames(video_path)
+
+# Usamos el 25% de los frames para inicializar el modelo de fondo
 training_end = int(total_frames * 0.25)
-training_frames = load_data.load_frames_list(video_path, start=0, end=training_end)
-bg_mean, bg_variance = gaussian_model.compute_gaussian_background(training_frames)
+training_frames = load_frames_list(video_path, start=0, end=training_end)
+print("Parámetros de fondo adaptativo inicializados correctamente!!!")
 
-print("Gaussian Background parameters calculated succesfully!!!")
-
-test_frames = load_data.load_frames_list(video_path, start=training_end, end=total_frames)
-# Load ground truth annotations (assuming XML annotations)
+# Cargamos las anotaciones de ground truth (suponiendo formato XML)
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
-# Organize GT per frame; here we assume gt_data is a list of dictionaries with keys "frame" and "bbox"
+# Organizamos el GT por frame: se crea un diccionario con la lista de bounding boxes para cada frame.
 gt_dict = {}
 for item in gt_data:
     # Solo consideramos vehículos en movimiento (parked == False)
@@ -91,46 +91,54 @@ for item in gt_data:
         else:
             gt_dict[frame_no] = [box]
 
-for thrs in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
+# Opcional: instanciar el filtro temporal (si se desea refinar la máscara en tiempo real)
+temporal_filter = RealTimeTemporalMedianFilter(window_size=5)
 
-    temporal_filter = RealTimeTemporalMedianFilter(window_size=5)
-    all_pred_boxes = []
-    all_gt_boxes = []
+ap_list = []
+all_pred_boxes_gmm = []
+all_gt_boxes_gmm = []
 
-    # Loop over test frames (keeping track of frame index)
-    for idx, frame_rgb in tqdm(enumerate(test_frames, start=training_end)):
+f = open("GMM.txt", "a")
 
-        # Compute the binary background mask using the non-recursive Gaussian model
-        background_mask = improved_classify_frame(frame_rgb, bg_mean, bg_variance, threshold_factor=thrs)
-        # Apply the causal temporal median filter to refine the mask in real time
-        #refined_mask = temporal_filter.update(background_mask)
+for thrs in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
 
-        # Extract predicted bounding boxes from the foreground mask
-        pred_boxes = metrics.extract_bounding_boxes(background_mask, min_area=500)
+    gmm_model = gaussian_modelling.GMMBackgroundSubtractor(history=500, varThreshold=16, detectShadows=True)
+
+    # Procesamos los frames de prueba (el 75% restante)
+    test_frames = load_frames_list(video_path, start=training_end, end=total_frames)
+    for idx, frame_rgb in enumerate(test_frames, start=training_end):
+        # Apply GMM background subtraction
+        fg_mask = gmm_model.apply(frame_rgb)
+
+        # Optionally remove shadows (gray pixels with value 127)
+        _, fg_mask_binary = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)
+
+        # Extract bounding boxes
+        pred_boxes = metrics.extract_bounding_boxes(fg_mask_binary, min_area=500)
         gt_boxes = gt_dict.get(idx, [])
 
-        # Append boxes for video-level AP calculation
-        all_pred_boxes.append(pred_boxes)
-        all_gt_boxes.append(gt_boxes)
-
-        # Evaluate detection at the bounding box level (IoU, precision, recall)
+        # Append for later evaluation
+        all_pred_boxes_gmm.append(pred_boxes)
+        all_gt_boxes_gmm.append(gt_boxes)
         if gt_boxes:
             precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
             avg_iou = np.mean(iou_list) if iou_list else 0.0
             #print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
+            #f.write(f"{idx}: Avg IoU={avg_iou:.2f}\n")
         #else:
             #print(f"Frame {idx}: No hay GT disponible.")
 
-        # Optionally: Display the frame, mask, and draw bounding boxes on the frame for visualization.
+        # Visualization (optional)
         for box in pred_boxes:
-            cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
-        #cv2.imshow("Frame with Detections", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
-        #cv2.imshow("Foreground Mask", background_mask)
+            cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
+        #cv2.imshow("GMM Detection", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+
         key = cv2.waitKey(30) & 0xFF
-        if key == 27:  # ESC key to exit
+        if key == 27:  # ESC
             break
 
-    video_ap = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
-    print(f"Video mAP (AP for class 'car'): {video_ap:.4f}")
-
     cv2.destroyAllWindows()
+
+    # Compute mAP after all frames processed
+    video_ap_gmm = metrics.compute_video_average_precision(all_pred_boxes_gmm, all_gt_boxes_gmm, iou_threshold=0.5)
+    print(f"GMM Method Video mAP (Cars): {video_ap_gmm:.4f}")
