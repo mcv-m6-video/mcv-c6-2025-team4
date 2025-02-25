@@ -3,6 +3,7 @@ import os
 import cv2
 import numpy as np
 from tqdm import tqdm
+import imageio
 
 from src.load_data import load_video_frame, load_frames_list
 
@@ -75,7 +76,7 @@ bg_mean, bg_variance = gaussian_model.compute_gaussian_background(training_frame
 
 print("Gaussian Background parameters calculated succesfully!!!")
 
-test_frames = load_data.load_frames_list(video_path, start=training_end, end=total_frames)
+test_frames = load_data.load_frames_list(video_path, start=training_end+200, end=training_end + 600)
 # Load ground truth annotations (assuming XML annotations)
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
 # Organize GT per frame; here we assume gt_data is a list of dictionaries with keys "frame" and "bbox"
@@ -91,46 +92,77 @@ for item in gt_data:
         else:
             gt_dict[frame_no] = [box]
 
-for thrs in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
+temporal_filter = RealTimeTemporalMedianFilter(window_size=5)
+all_pred_boxes = []
+all_gt_boxes = []
 
-    temporal_filter = RealTimeTemporalMedianFilter(window_size=5)
-    all_pred_boxes = []
-    all_gt_boxes = []
+# Define the output GIF path
+gif_path = "plots/foreground_mask_sequence.gif"
 
-    # Loop over test frames (keeping track of frame index)
-    for idx, frame_rgb in tqdm(enumerate(test_frames, start=training_end)):
+# List to store frames for the GIF
+gif_frames = []
 
-        # Compute the binary background mask using the non-recursive Gaussian model
-        background_mask = improved_classify_frame(frame_rgb, bg_mean, bg_variance, threshold_factor=thrs)
-        # Apply the causal temporal median filter to refine the mask in real time
-        #refined_mask = temporal_filter.update(background_mask)
+# Define font properties
+font = cv2.FONT_HERSHEY_SIMPLEX
+font_scale = 1
+font_color = (255,)  # White text for grayscale image
+thickness = 2
+position = (20, 40)  # Text position
 
-        # Extract predicted bounding boxes from the foreground mask
-        pred_boxes = metrics.extract_bounding_boxes(background_mask, min_area=500)
-        gt_boxes = gt_dict.get(idx, [])
+#f = open("non_adaptive_20.txt", "w+")
 
-        # Append boxes for video-level AP calculation
-        all_pred_boxes.append(pred_boxes)
-        all_gt_boxes.append(gt_boxes)
+# Loop over test frames (keeping track of frame index)
+for idx, frame_rgb in enumerate(test_frames, start=training_end+200):
 
-        # Evaluate detection at the bounding box level (IoU, precision, recall)
-        if gt_boxes:
-            precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
-            avg_iou = np.mean(iou_list) if iou_list else 0.0
-            #print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
-        #else:
-            #print(f"Frame {idx}: No hay GT disponible.")
+    # Compute the binary background mask using the non-recursive Gaussian model
+    background_mask = improved_classify_frame(frame_rgb, bg_mean, bg_variance, threshold_factor=4)
+    # Apply the causal temporal median filter to refine the mask in real time
+    #refined_mask = temporal_filter.update(background_mask)
 
-        # Optionally: Display the frame, mask, and draw bounding boxes on the frame for visualization.
-        for box in pred_boxes:
-            cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
-        #cv2.imshow("Frame with Detections", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
-        #cv2.imshow("Foreground Mask", background_mask)
-        key = cv2.waitKey(30) & 0xFF
-        if key == 27:  # ESC key to exit
-            break
+    mask_8bit = (background_mask).astype(np.uint8)
+    resized_mask = cv2.resize(mask_8bit, (800, 512))  # Adjust size as needed
+    mask_colored = cv2.cvtColor(resized_mask, cv2.COLOR_GRAY2BGR)
+    #cv2.putText(mask_colored, f"Frame {idx-training_end}", position, font, font_scale, font_color, thickness, cv2.LINE_AA)
 
-    video_ap = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
-    print(f"Video mAP (AP for class 'car'): {video_ap:.4f}")
+    #gif_frames.append(mask_colored)
 
-    cv2.destroyAllWindows()
+    # Extract predicted bounding boxes from the foreground mask
+    pred_boxes = metrics.extract_bounding_boxes(background_mask, min_area=500)
+    gt_boxes = gt_dict.get(idx, [])
+
+    # Append boxes for video-level AP calculation
+    all_pred_boxes.append(pred_boxes)
+    all_gt_boxes.append(gt_boxes)
+
+    # Evaluate detection at the bounding box level (IoU, precision, recall)
+    if gt_boxes:
+        precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
+        avg_iou = np.mean(iou_list) if iou_list else 0.0
+        print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
+        cv2.putText(mask_colored, f"Frame {idx - (training_end+200)}", position, font, font_scale, font_color, thickness,
+                    cv2.LINE_AA)
+
+
+        #f.write(f"Frame {idx}: Avg IoU={avg_iou:.2f}\n")
+    else:
+        print(f"Frame {idx}: No hay GT disponible.")
+        cv2.putText(mask_colored, f"Frame {idx - (training_end+200)}. No Ground Truth", position, font, font_scale, font_color, thickness,
+                    cv2.LINE_AA)
+
+    gif_frames.append(mask_colored)
+
+    # Optionally: Display the frame, mask, and draw bounding boxes on the frame for visualization.
+    for box in pred_boxes:
+        cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
+    #cv2.imshow("Frame with Detections", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+    #cv2.imshow("Foreground Mask", background_mask)
+    key = cv2.waitKey(30) & 0xFF
+    if key == 27:  # ESC key to exit
+        break
+
+video_ap = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
+print(f"Video mAP (AP for class 'car'): {video_ap:.4f}")
+
+imageio.mimsave(gif_path, gif_frames, duration=0.05)  # Adjust duration for speed
+
+cv2.destroyAllWindows()

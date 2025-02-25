@@ -107,8 +107,7 @@ class AdaptiveGaussianModel:
 
         # For pixels classified as background, update the mean and variance
         new_mean[mask] = (1 - self.rho) * self.background_mean[mask] + self.rho * frame_float[mask]
-        new_variance[mask] = (1 - self.rho) * self.background_variance[mask] + \
-                             self.rho * ((frame_float[mask] - new_mean[mask]) ** 2)
+        new_variance[mask] = (1 - self.rho) * self.background_variance[mask] + self.rho * ((frame_float[mask] - new_mean[mask]) ** 2)
 
         self.background_mean = new_mean
         self.background_variance = new_variance
@@ -123,9 +122,6 @@ class AdaptiveGaussianModel:
         mask = self.classify_frame(frame)
         self.update_background(frame, mask)
         return mask
-
-import cv2
-import numpy as np
 
 class GMMBackgroundSubtractor:
     def __init__(self, history=500, varThreshold=16, detectShadows=True):

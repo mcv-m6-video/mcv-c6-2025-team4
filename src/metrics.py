@@ -16,9 +16,6 @@ def remove_noise(mask, kernel_size=3):
 
 
 def boxes_overlap(boxA, boxB):
-    """
-    Returns True if two boxes [x_min, y_min, x_max, y_max] overlap (non-zero intersection).
-    """
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
     xB = min(boxA[2], boxB[2])
@@ -26,15 +23,7 @@ def boxes_overlap(boxA, boxB):
     return (xA < xB) and (yA < yB)
 
 
-def merge_overlapping_boxes(boxes):
-    """
-    Merge overlapping boxes into larger boxes.
-
-    This function uses a simple iterative approach:
-      - For each box, it checks against the others.
-      - If two boxes overlap, they are merged (by taking the union of their coordinates).
-      - The process repeats until no further merging is possible.
-    """
+def merge_nearby_boxes(boxes, merge_distance=100):
     merged = True
     while merged:
         merged = False
@@ -47,8 +36,7 @@ def merge_overlapping_boxes(boxes):
             for j in range(i + 1, len(boxes)):
                 if skip[j]:
                     continue
-                if boxes_overlap(current_box, boxes[j]):
-                    # Merge the two boxes into a union rectangle.
+                if boxes_overlap(current_box, boxes[j]) or is_nearby(current_box, boxes[j], merge_distance):
                     current_box = [
                         min(current_box[0], boxes[j][0]),
                         min(current_box[1], boxes[j][1]),
@@ -62,25 +50,28 @@ def merge_overlapping_boxes(boxes):
     return boxes
 
 
-def extract_bounding_boxes(mask, min_area=800):
-    """
-    Given a binary mask (uint8 image where nonzero pixels represent detected foreground),
-    find contours and return bounding boxes [x_min, y_min, x_max, y_max] for each contour.
-    Optionally ignores small contours based on min_area, and then merges overlapping boxes.
-    """
+def is_nearby(boxA, boxB, merge_distance):
+    return (
+            abs(boxA[0] - boxB[0]) <= merge_distance and
+            abs(boxA[1] - boxB[1]) <= merge_distance and
+            abs(boxA[2] - boxB[2]) <= merge_distance and
+            abs(boxA[3] - boxB[3]) <= merge_distance
+    )
+
+
+def extract_bounding_boxes(mask, min_area=800, merge_distance=60):
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     boxes = []
     for cnt in contours:
         if cv2.contourArea(cnt) < min_area:
-            continue  # filter out small regions
+            continue
         x, y, w, h = cv2.boundingRect(cnt)
         boxes.append([x, y, x + w, y + h])
 
     if not boxes:
         return boxes
 
-    # Merge overlapping bounding boxes to avoid very small or fragmented boxes.
-    merged_boxes = merge_overlapping_boxes(boxes)
+    merged_boxes = merge_nearby_boxes(boxes, merge_distance)
     return merged_boxes
 
 def compute_iou(boxA, boxB):

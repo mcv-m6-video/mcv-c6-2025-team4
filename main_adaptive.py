@@ -2,6 +2,7 @@ from src import gaussian_modelling, load_data, metrics, read_data
 import os
 import cv2
 import numpy as np
+import imageio
 from tqdm import tqdm
 
 from src.load_data import load_video_frame, load_frames_list
@@ -68,7 +69,7 @@ video_path = os.path.join(path, "vdo.avi")
 total_frames = load_data.get_total_frames(video_path)
 
 # Creamos la instancia del modelo gaussiano adaptativo
-adaptive_model = gaussian_modelling.AdaptiveGaussianModel(rho=0.01, threshold_factor=13)
+adaptive_model = gaussian_modelling.AdaptiveGaussianModel(rho=0.01, threshold_factor=4)
 
 # Determinamos el número total de frames del video
 total_frames = load_data.get_total_frames(video_path)
@@ -101,11 +102,23 @@ ap_list = []
 all_pred_boxes = []
 all_gt_boxes = []
 
-f = open("adaptive.txt", "w+")
+# Define the output GIF path
+gif_path = "plots/adaptive_data/foreground_mask_sequence_adaptive.gif"
+
+# List to store frames for the GIF
+gif_frames = []
+
+font = cv2.FONT_HERSHEY_SIMPLEX
+font_scale = 1
+font_color = (255,)  # White text for grayscale image
+thickness = 2
+position = (20, 40)  # Text position
+
+#f = open("adaptive_9.txt", "w+")
 
 # Procesamos los frames de prueba (el 75% restante)
-test_frames = load_frames_list(video_path, start=training_end, end=total_frames)
-for idx, frame_rgb in tqdm(enumerate(test_frames, start=training_end)):
+test_frames = load_frames_list(video_path, start=training_end+200, end=training_end+600)
+for idx, frame_rgb in enumerate(test_frames, start=training_end+200):
 
     # Procesamos el frame: se obtiene la máscara de fondo y se actualiza el modelo de forma adaptativa
     background_mask = adaptive_model.process_frame(frame_rgb)
@@ -115,6 +128,10 @@ for idx, frame_rgb in tqdm(enumerate(test_frames, start=training_end)):
     # Usamos refined_mask en lugar de background_mask si se activa el filtro
 
     background_mask = cv2.bitwise_not(background_mask)
+
+    mask_8bit = (background_mask).astype(np.uint8)
+    resized_mask = cv2.resize(mask_8bit, (800, 512))  # Adjust size as needed
+    mask_colored = cv2.cvtColor(resized_mask, cv2.COLOR_GRAY2BGR)
 
     # Extraer bounding boxes a partir de la máscara de primer plano (suponiendo que metrics.extract_bounding_boxes esté definido)
     pred_boxes = metrics.extract_bounding_boxes(background_mask, min_area=500)
@@ -130,8 +147,16 @@ for idx, frame_rgb in tqdm(enumerate(test_frames, start=training_end)):
         avg_iou = np.mean(iou_list) if iou_list else 0.0
         #print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
         #f.write(f"{idx}: Avg IoU={avg_iou:.2f}\n")
-    #else:
+        cv2.putText(mask_colored, f"Frame {idx - (training_end + 200)}", position, font, font_scale, font_color,
+                    thickness,
+                    cv2.LINE_AA)
+    else:
         #print(f"Frame {idx}: No hay GT disponible.")
+        cv2.putText(mask_colored, f"Frame {idx - (training_end + 200)}. No Ground Truth", position, font, font_scale,
+                    font_color, thickness,
+                    cv2.LINE_AA)
+    gif_frames.append(mask_colored)
+
 
     # Para evaluación a nivel de píxel: comparamos la máscara predicha con la máscara GT
     #if gt_boxes:
@@ -140,15 +165,17 @@ for idx, frame_rgb in tqdm(enumerate(test_frames, start=training_end)):
     #    print(f"Frame {idx}: Métricas a nivel de píxel - TPR={TPR:.2f}, FPR={FPR:.2f}")
 
     # Visualización: dibujar los bounding boxes predichos en el frame
-    for box in pred_boxes:
-        cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
+    #for box in pred_boxes:
+        #cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
     #cv2.imshow("Frame con Detecciones", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
-    #cv2.imshow("Máscara de Primer Plano", background_mask)
-    key = cv2.waitKey(90) & 0xFF
+    #cv2.imshow("Mascara de Primer Plano", background_mask)
+    key = cv2.waitKey(20) & 0xFF
     if key == 27:  # ESC para salir
         break
 
 video_ap = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
 print(f"Video mAP (AP for class 'car'): {video_ap:.4f}")
+
+imageio.mimsave(gif_path, gif_frames, duration=0.05)  # Adjust duration for speed
 
 cv2.destroyAllWindows()

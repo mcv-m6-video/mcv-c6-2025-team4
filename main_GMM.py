@@ -2,54 +2,9 @@ from src import gaussian_modelling, load_data, metrics, read_data
 import os
 import cv2
 import numpy as np
+import imageio
 
 from src.load_data import load_video_frame, load_frames_list
-
-def improved_classify_frame(frame, background_mean, background_variance, threshold_factor=8, min_area=500):
-    # Convert inputs to float for precision
-    frame_float = frame.astype(np.float32)
-    bg_mean_float = background_mean.astype(np.float32)
-    sigma = np.sqrt(background_variance.astype(np.float32) + 1e-6)
-
-    # Compute the absolute difference for each channel
-    diff = np.abs(frame_float - bg_mean_float)
-
-    # Classify pixel as background if all channels are within threshold_factor * sigma
-    within_threshold = diff <= (threshold_factor * sigma)
-    background_mask = np.all(within_threshold, axis=2).astype(np.uint8) * 255
-
-    # Derive the foreground mask (where cars should be)
-    foreground_mask = cv2.bitwise_not(background_mask)
-
-    # Apply morphological opening to remove small noisy regions
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    cleaned_mask = cv2.morphologyEx(foreground_mask, cv2.MORPH_OPEN, kernel)
-
-    # Optionally, remove small blobs using connected component analysis
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned_mask, connectivity=8)
-    refined_mask = np.zeros_like(cleaned_mask)
-    for i in range(1, num_labels):  # Skip the background label 0
-        if stats[i, cv2.CC_STAT_AREA] >= min_area:
-            refined_mask[labels == i] = 255
-
-    return refined_mask
-
-class RealTimeTemporalMedianFilter:
-    def __init__(self, window_size=5):
-        self.window_size = window_size
-        self.buffer = []
-
-    def update(self, new_mask):
-        # Add the new mask to the buffer
-        self.buffer.append(new_mask)
-        # Keep only the most recent 'window_size' masks
-        if len(self.buffer) > self.window_size:
-            self.buffer.pop(0)
-        # Compute the median across the buffered masks
-        median_mask = np.median(np.stack(self.buffer, axis=0), axis=0)
-        # Threshold the median result to convert it back to a binary mask
-        refined_mask = (median_mask > 127).astype(np.uint8) * 255
-        return refined_mask
 
 # Path to the AI City data video
 path = "./data/AICity_data/train/S03/c010"
@@ -91,54 +46,98 @@ for item in gt_data:
         else:
             gt_dict[frame_no] = [box]
 
-# Opcional: instanciar el filtro temporal (si se desea refinar la máscara en tiempo real)
-temporal_filter = RealTimeTemporalMedianFilter(window_size=5)
-
 ap_list = []
 all_pred_boxes_gmm = []
 all_gt_boxes_gmm = []
 
-f = open("GMM.txt", "a")
+# Define the output GIF path
+gif_path = "plots/gmm/foreground_mask_sequence_gmm.gif"
 
-for thrs in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
+# List to store frames for the GIF
+gif_frames = []
 
-    gmm_model = gaussian_modelling.GMMBackgroundSubtractor(history=500, varThreshold=16, detectShadows=True)
+output_video_path = "plots/gmm/foreground_mask_sequence_gmm_nonearby.avi"
+frame_width, frame_height = 800, 512  # Adjust as needed
+fps = 30  # Adjust based on your needs
 
-    # Procesamos los frames de prueba (el 75% restante)
-    test_frames = load_frames_list(video_path, start=training_end, end=total_frames)
-    for idx, frame_rgb in enumerate(test_frames, start=training_end):
-        # Apply GMM background subtraction
-        fg_mask = gmm_model.apply(frame_rgb)
+# Initialize VideoWriter
+fourcc = cv2.VideoWriter_fourcc(*"XVID")  # Use 'MP4V' for .mp4 output
+out = cv2.VideoWriter(output_video_path, fourcc, fps, (frame_width, frame_height))
 
-        # Optionally remove shadows (gray pixels with value 127)
-        _, fg_mask_binary = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)
+font = cv2.FONT_HERSHEY_SIMPLEX
+font_scale = 1
+font_color = (255,)  # White text for grayscale image
+thickness = 2
+position = (20, 40)  # Text position
 
-        # Extract bounding boxes
-        pred_boxes = metrics.extract_bounding_boxes(fg_mask_binary, min_area=500)
-        gt_boxes = gt_dict.get(idx, [])
 
-        # Append for later evaluation
-        all_pred_boxes_gmm.append(pred_boxes)
-        all_gt_boxes_gmm.append(gt_boxes)
-        if gt_boxes:
-            precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
-            avg_iou = np.mean(iou_list) if iou_list else 0.0
-            #print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
-            #f.write(f"{idx}: Avg IoU={avg_iou:.2f}\n")
-        #else:
-            #print(f"Frame {idx}: No hay GT disponible.")
+#f = open("GMM_40_4000.txt", "w+")
 
-        # Visualization (optional)
-        for box in pred_boxes:
-            cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
-        #cv2.imshow("GMM Detection", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+#for thrs in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
 
-        key = cv2.waitKey(30) & 0xFF
-        if key == 27:  # ESC
-            break
+gmm_model = gaussian_modelling.GMMBackgroundSubtractor(history=500, varThreshold=40, detectShadows=True)
 
-    cv2.destroyAllWindows()
+# Procesamos los frames de prueba (el 75% restante)
+test_frames = load_frames_list(video_path, start=training_end, end=total_frames)
+for idx, frame_rgb in enumerate(test_frames, start=training_end):
+    # Apply GMM background subtraction
+    fg_mask = gmm_model.apply(frame_rgb)
 
-    # Compute mAP after all frames processed
-    video_ap_gmm = metrics.compute_video_average_precision(all_pred_boxes_gmm, all_gt_boxes_gmm, iou_threshold=0.5)
-    print(f"GMM Method Video mAP (Cars): {video_ap_gmm:.4f}")
+    # Optionally remove shadows (gray pixels with value 127)
+    _, fg_mask_binary = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)
+
+    mask_8bit = (fg_mask_binary).astype(np.uint8)
+
+    mask_colored = cv2.cvtColor(mask_8bit, cv2.COLOR_GRAY2BGR)
+
+    # Extract bounding boxes
+    pred_boxes = metrics.extract_bounding_boxes(fg_mask_binary, min_area=500)
+    gt_boxes = gt_dict.get(idx, [])
+
+    # Append for later evaluation
+    all_pred_boxes_gmm.append(pred_boxes)
+    all_gt_boxes_gmm.append(gt_boxes)
+    if gt_boxes:
+        precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
+        avg_iou = np.mean(iou_list) if iou_list else 0.0
+        print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
+        #f.write(f"{idx}: Avg IoU={avg_iou:.2f}\n")
+        cv2.putText(mask_colored, f"Frame {idx}", position, font, font_scale, font_color,
+                    thickness,
+                    cv2.LINE_AA)
+    else:
+        print(f"Frame {idx}: No hay GT disponible.")
+        cv2.putText(mask_colored, f"Frame {idx}. No Ground Truth", position, font, font_scale,
+                    font_color, thickness,
+                    cv2.LINE_AA)
+
+    # Dibujar las bounding boxes de las predicciones en verde
+    for box in pred_boxes:
+        #print("Drawing prediction box")
+        cv2.rectangle(mask_colored, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)  # Verde
+
+    # Dibujar las bounding boxes del ground truth en rojo
+    for gt_box in gt_boxes:
+        #print("Drawing ground truth box")
+        cv2.rectangle(mask_colored, (int(gt_box[0]), int(gt_box[1])), (int(gt_box[2]), int(gt_box[3])), (255, 0, 0), 2)  # Rojo
+
+    resized_mask = cv2.resize(mask_colored, (800, 512))  # Adjust size as needed
+
+    out.write(resized_mask)
+
+    # Mostrar la máscara con los bounding boxes dibujados
+    #cv2.imshow("Mascara con Detecciones", fg_mask_colored)
+
+    key = cv2.waitKey(30) & 0xFF
+    if key == 27:  # ESC
+        break
+
+cv2.destroyAllWindows()
+out.release()
+
+
+# Compute mAP after all frames processed
+video_ap_gmm = metrics.compute_video_average_precision(all_pred_boxes_gmm, all_gt_boxes_gmm, iou_threshold=0.5)
+print(f"GMM Method Video mAP (Cars): {video_ap_gmm:.4f}")
+
+#imageio.mimsave(gif_path, gif_frames, duration=0.05)  # Adjust duration for speed
