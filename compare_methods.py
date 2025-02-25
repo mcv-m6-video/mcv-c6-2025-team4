@@ -41,61 +41,64 @@ frame_size = (frame_width, frame_height)
 # Inicializar VideoWriters para cada método
 fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec AVI
 
-# out_mog = cv2.VideoWriter(os.path.join(output_dir, "MOG.avi"), fourcc, fps, frame_size, isColor=False)
-# out_mog2 = cv2.VideoWriter(os.path.join(output_dir, "MOG2.avi"), fourcc, fps, frame_size, isColor=False)
+out_mog = cv2.VideoWriter(os.path.join(output_dir, "MOG.avi"), fourcc, fps, frame_size, isColor=False)
+out_mog2 = cv2.VideoWriter(os.path.join(output_dir, "MOG2.avi"), fourcc, fps, frame_size, isColor=False)
 out_lsbp = cv2.VideoWriter(os.path.join(output_dir, "LSBP.avi"), fourcc, fps, frame_size, isColor=False)
 
 print("Processing frames and calculating mAP@50...")
 
-# Acumuladores para mAP@50 (promedio de precisión)
-precision_accum = {"MOG": [], "MOG2": [], "LSBP": []}
+# Inicializar los acumuladores de predicciones y GT para cada método
+all_pred_boxes = {"MOG": [], "MOG2": [], "LSBP": []}
+all_gt_boxes = {"MOG": [], "MOG2": [], "LSBP": []}
 
-frame_idx = training_end  # Índice de frame
+frame_idx = training_end  # Comenzamos desde la zona de test
 while cap.isOpened():
     ret, frame_rgb = cap.read()
     if not ret:
-        break  # Si termina el video, salir
+        break  # Si el video terminó, salir del loop
 
     # Convertir a escala de grises para mejorar la compresión
     gray_frame = cv2.cvtColor(frame_rgb, cv2.COLOR_BGR2GRAY)
 
-    # Aplicar cada método de background subtraction
-    # fg_mask_mog = mog.apply(gray_frame)
-    # fg_mask_mog2 = mog2.apply(gray_frame)
+    # Aplicar los métodos de background subtraction
+    fg_mask_mog = mog.apply(gray_frame)
+    fg_mask_mog2 = mog2.apply(gray_frame)
     fg_mask_lsbp = lsbp.apply(gray_frame)
 
-    # Guardar frames en los videos
-    # out_mog.write(fg_mask_mog)
-    # out_mog2.write(fg_mask_mog2)
+    # Guardar los resultados de cada frame en el video de salida
+    out_mog.write(fg_mask_mog)
+    out_mog2.write(fg_mask_mog2)
     out_lsbp.write(fg_mask_lsbp)
 
-    # Obtener las cajas de ground truth para el frame actual
+    # Obtener las cajas de ground truth para este frame
     gt_boxes = gt_dict.get(frame_idx, [])
 
-    # Procesar cada método
+    # Acumular las predicciones y las cajas GT por cada método
     for method_name, fg_mask in [
-        # ("MOG", fg_mask_mog),
-        # ("MOG2", fg_mask_mog2),
+        ("MOG", fg_mask_mog),
+        ("MOG2", fg_mask_mog2),
         ("LSBP", fg_mask_lsbp),
     ]:
-        # Extraer bounding boxes predichas
+        # Extraer las cajas de la máscara predicha
         pred_boxes = metrics.extract_bounding_boxes(fg_mask, min_area=500)
+        
+        # Almacenar las predicciones y las GT para este método
+        all_pred_boxes[method_name].append(pred_boxes)
+        all_gt_boxes[method_name].append(gt_boxes)
 
-        # Calcular precisión si hay GT disponible
-        if gt_boxes:
-            ap = metrics.compute_frame_average_precision(pred_boxes, gt_boxes, iou_threshold=0.5)
-            precision_accum[method_name].append(ap)
-
-    frame_idx += 1  # Incrementar frame index
+    frame_idx += 1  # Incrementar el índice del frame
 
 # Liberar recursos
 cap.release()
-# out_mog.release()
-# out_mog2.release()
+out_mog.release()
+out_mog2.release()
 out_lsbp.release()
 
-# Calcular mAP@50 final para cada método (promedio de precision)
-final_map50 = {method: np.mean(values) if values else 0 for method, values in precision_accum.items()}
+# Calcular el mAP para cada método usando la función compute_video_average_precision
+final_map50 = {}
+for method in ["MOG", "MOG2", "LSBP"]:
+    map50 = metrics.compute_video_average_precision(all_pred_boxes[method], all_gt_boxes[method], iou_threshold=0.5)
+    final_map50[method] = map50
 
 # Imprimir resultados finales
 print("\nFinal mAP@50 Results:")

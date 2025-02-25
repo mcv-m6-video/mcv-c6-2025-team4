@@ -30,9 +30,9 @@ frame_size = (frame_width, frame_height)
 
 print("Processing frames and calculating mAP@50...")
 
-# Acumulador para precisión
-# Acumulador para precisión
-precision_accum = []
+# Inicializar los acumuladores para las predicciones y las cajas de GT por todo el video
+all_pred_boxes = []
+all_gt_boxes = []
 
 frame_idx = 0
 while cap.isOpened():
@@ -47,10 +47,9 @@ while cap.isOpened():
     # Extraer bounding boxes de la máscara de LOBSTER
     pred_boxes = metrics.extract_bounding_boxes(gray_frame, min_area=500)
 
-    # Calcular AP si hay GT disponible
-    if gt_boxes:
-        ap = metrics.compute_frame_average_precision(pred_boxes, gt_boxes, iou_threshold=0.5)
-        precision_accum.append(ap)
+    # Acumular las predicciones y las cajas GT para todo el video
+    all_pred_boxes.append(pred_boxes)
+    all_gt_boxes.append(gt_boxes)
 
     frame_idx += 1
 
@@ -58,9 +57,9 @@ while cap.isOpened():
 cap.release()
 
 # -------------------------
-# 3. Calcular mAP@50 final
+# 3. Calcular mAP@50 global
 # -------------------------
-final_map50 = np.mean(precision_accum) if precision_accum else 0
+final_map50 = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
 
 # Imprimir resultados
 print(f"\nFinal mAP@50: {final_map50:.4f}")
