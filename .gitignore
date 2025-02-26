@@ -8,6 +8,7 @@ tf_env/
 bgs*/
 
 .idea/
-GMM.txt
-GMM Method Video mAP.txt
+plots/gmm/GMM.txt
+plots/gmm/GMM Method Video mAP.txt
 adaptive.txt
+plots/

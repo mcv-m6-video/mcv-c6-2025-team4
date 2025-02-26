@@ -107,8 +107,7 @@ class AdaptiveGaussianModel:
 
         # For pixels classified as background, update the mean and variance
         new_mean[mask] = (1 - self.rho) * self.background_mean[mask] + self.rho * frame_float[mask]
-        new_variance[mask] = (1 - self.rho) * self.background_variance[mask] + \
-                             self.rho * ((frame_float[mask] - new_mean[mask]) ** 2)
+        new_variance[mask] = (1 - self.rho) * self.background_variance[mask] + self.rho * ((frame_float[mask] - new_mean[mask]) ** 2)
 
         self.background_mean = new_mean
         self.background_variance = new_variance
@@ -125,17 +124,51 @@ class AdaptiveGaussianModel:
         return mask
 
 import cv2
-import numpy as np
 
 class GMMBackgroundSubtractor:
     def __init__(self, history=500, varThreshold=16, detectShadows=True):
-        self.backSub = cv2.createBackgroundSubtractorMOG2(history=history,
-                                                          varThreshold=varThreshold,
-                                                          detectShadows=detectShadows)
+        """
+        Initializes the Gaussian Mixture Model (GMM) background subtractor.
+
+        Parameters:
+        - history: int, optional
+            The number of frames used to learn the background model.
+        - varThreshold: float, optional
+            Threshold on the squared Mahalanobis distance to decide whether
+            a pixel is well described by the background model.
+        - detectShadows: bool, optional
+            If True, the algorithm detects and marks shadows in the output.
+        """
+        self.backSub = cv2.createBackgroundSubtractorMOG2(
+            history=history, varThreshold=varThreshold, detectShadows=detectShadows
+        )
 
     def apply(self, frame, learningRate=-1):
+        """
+        Applies background subtraction to a given frame.
+
+        Parameters:
+        - frame: np.ndarray
+            The input image frame in which foreground objects need to be detected.
+        - learningRate: float, optional
+            The learning rate that controls how fast the background model adapts
+            to changes. If set to -1, an automatic learning rate is used.
+
+        Returns:
+        - fg_mask: np.ndarray
+            A binary mask where foreground pixels are white (255) and
+            background pixels are black (0).
+        """
         fg_mask = self.backSub.apply(frame, learningRate=learningRate)
         return fg_mask
 
     def get_background(self):
+        """
+        Retrieves the estimated background image.
+
+        Returns:
+        - background: np.ndarray
+            The current background model as an image. Returns None if
+            the background model has not been initialized yet.
+        """
         return self.backSub.getBackgroundImage()

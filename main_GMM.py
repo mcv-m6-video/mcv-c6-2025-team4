@@ -1,144 +1,122 @@
-from src import gaussian_modelling, load_data, metrics, read_data
 import os
 import cv2
 import numpy as np
+import imageio
 
+from src import gaussian_modelling, load_data, metrics, read_data
 from src.load_data import load_video_frame, load_frames_list
 
-def improved_classify_frame(frame, background_mean, background_variance, threshold_factor=8, min_area=500):
-    # Convert inputs to float for precision
-    frame_float = frame.astype(np.float32)
-    bg_mean_float = background_mean.astype(np.float32)
-    sigma = np.sqrt(background_variance.astype(np.float32) + 1e-6)
-
-    # Compute the absolute difference for each channel
-    diff = np.abs(frame_float - bg_mean_float)
-
-    # Classify pixel as background if all channels are within threshold_factor * sigma
-    within_threshold = diff <= (threshold_factor * sigma)
-    background_mask = np.all(within_threshold, axis=2).astype(np.uint8) * 255
-
-    # Derive the foreground mask (where cars should be)
-    foreground_mask = cv2.bitwise_not(background_mask)
-
-    # Apply morphological opening to remove small noisy regions
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    cleaned_mask = cv2.morphologyEx(foreground_mask, cv2.MORPH_OPEN, kernel)
-
-    # Optionally, remove small blobs using connected component analysis
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned_mask, connectivity=8)
-    refined_mask = np.zeros_like(cleaned_mask)
-    for i in range(1, num_labels):  # Skip the background label 0
-        if stats[i, cv2.CC_STAT_AREA] >= min_area:
-            refined_mask[labels == i] = 255
-
-    return refined_mask
-
-class RealTimeTemporalMedianFilter:
-    def __init__(self, window_size=5):
-        self.window_size = window_size
-        self.buffer = []
-
-    def update(self, new_mask):
-        # Add the new mask to the buffer
-        self.buffer.append(new_mask)
-        # Keep only the most recent 'window_size' masks
-        if len(self.buffer) > self.window_size:
-            self.buffer.pop(0)
-        # Compute the median across the buffered masks
-        median_mask = np.median(np.stack(self.buffer, axis=0), axis=0)
-        # Threshold the median result to convert it back to a binary mask
-        refined_mask = (median_mask > 127).astype(np.uint8) * 255
-        return refined_mask
-
-# Path to the AI City data video
+# Path to the AI City dataset video
 path = "./data/AICity_data/train/S03/c010"
 
 # Path to the annotations of the video
 path_annotation = "./data/ai_challenge_s03_c010-full_annotation.xml"
-path_detection = ["./data/AICity_data/train/S03/c010/det/det_mask_rcnn.txt",
-                  "./data/AICity_data/train/S03/c010/det/det_ssd512.txt",
-                  "./data/AICity_data/train/S03/c010/det/det_yolo3.txt"]
-
+path_detection = [
+    "./data/AICity_data/train/S03/c010/det/det_mask_rcnn.txt",
+    "./data/AICity_data/train/S03/c010/det/det_ssd512.txt",
+    "./data/AICity_data/train/S03/c010/det/det_yolo3.txt"
+]
 
 video_path = os.path.join(path, "vdo.avi")
 
-# Determine the total number of frames in the video.
+# Determine the total number of frames in the video
 total_frames = load_data.get_total_frames(video_path)
 
-# Creamos la instancia del modelo gaussiano adaptativo
-
-# Determinamos el número total de frames del video
-total_frames = load_data.get_total_frames(video_path)
-
-# Usamos el 25% de los frames para inicializar el modelo de fondo
+# Use 25% of the frames to initialize the background model
 training_end = int(total_frames * 0.25)
 training_frames = load_frames_list(video_path, start=0, end=training_end)
-print("Parámetros de fondo adaptativo inicializados correctamente!!!")
+print("Adaptive background parameters initialized successfully!!!")
 
-# Cargamos las anotaciones de ground truth (suponiendo formato XML)
+# Load ground truth annotations (assuming XML format)
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
-# Organizamos el GT por frame: se crea un diccionario con la lista de bounding boxes para cada frame.
+
+# Organize ground truth data by frame number
 gt_dict = {}
 for item in gt_data:
-    # Solo consideramos vehículos en movimiento (parked == False)
+    # Only consider moving vehicles (ignore parked cars)
     if not item.get("parked", False):
         frame_no = item["frame"]
-        # Convertir la caja a lista si es un numpy array
+        # Convert bounding box to a list if it is a NumPy array
         box = item["bbox"][0].tolist() if isinstance(item["bbox"], np.ndarray) else item["bbox"]
         if frame_no in gt_dict:
             gt_dict[frame_no].append(box)
         else:
             gt_dict[frame_no] = [box]
 
-# Opcional: instanciar el filtro temporal (si se desea refinar la máscara en tiempo real)
-temporal_filter = RealTimeTemporalMedianFilter(window_size=5)
-
+# Lists to store predicted and ground truth bounding boxes
 ap_list = []
 all_pred_boxes_gmm = []
 all_gt_boxes_gmm = []
 
-f = open("GMM.txt", "a")
+# Initialize Gaussian Mixture Model (GMM) background subtractor
+gmm_model = gaussian_modelling.GMMBackgroundSubtractor(history=500, varThreshold=40, detectShadows=True)
 
-for thrs in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
+# Define morphological operation kernels
+kernel_open = np.ones((5, 5), np.uint8)  # Remove small noise
+kernel_close = np.ones((9, 9), np.uint8)  # Merge regions
+kernel_dilate = np.ones((3, 3), np.uint8)  # Expand foreground slightly
 
-    gmm_model = gaussian_modelling.GMMBackgroundSubtractor(history=500, varThreshold=16, detectShadows=True)
+# Load test frames (remaining 75% of the video)
+test_frames = load_frames_list(video_path, start=training_end, end=total_frames)
+for idx, frame_rgb in enumerate(test_frames, start=training_end):
+    # Apply GMM background subtraction to detect moving objects
+    fg_mask = gmm_model.apply(frame_rgb)
 
-    # Procesamos los frames de prueba (el 75% restante)
-    test_frames = load_frames_list(video_path, start=training_end, end=total_frames)
-    for idx, frame_rgb in enumerate(test_frames, start=training_end):
-        # Apply GMM background subtraction
-        fg_mask = gmm_model.apply(frame_rgb)
+    # Remove shadows (gray pixels with value 127)
+    fg_mask[fg_mask == 127] = 0
 
-        # Optionally remove shadows (gray pixels with value 127)
-        _, fg_mask_binary = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)
+    # Convert to binary mask: retain high-confidence foreground pixels
+    _, fg_mask_binary = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)
 
-        # Extract bounding boxes
-        pred_boxes = metrics.extract_bounding_boxes(fg_mask_binary, min_area=500)
-        gt_boxes = gt_dict.get(idx, [])
+    # Apply morphological operations to refine mask
+    fg_mask_binary = cv2.morphologyEx(fg_mask_binary, cv2.MORPH_OPEN, kernel_open)  # Remove noise
+    fg_mask_binary = cv2.morphologyEx(fg_mask_binary, cv2.MORPH_CLOSE, kernel_close)  # Merge small regions
+    fg_mask_binary = cv2.dilate(fg_mask_binary, kernel_dilate, iterations=5)  # Expand detected objects
 
-        # Append for later evaluation
-        all_pred_boxes_gmm.append(pred_boxes)
-        all_gt_boxes_gmm.append(gt_boxes)
-        if gt_boxes:
-            precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
-            avg_iou = np.mean(iou_list) if iou_list else 0.0
-            #print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
-            #f.write(f"{idx}: Avg IoU={avg_iou:.2f}\n")
-        #else:
-            #print(f"Frame {idx}: No hay GT disponible.")
+    # Apply Gaussian blur to smooth mask edges
+    fg_mask_binary = cv2.GaussianBlur(fg_mask_binary, (9, 9), 0)
 
-        # Visualization (optional)
-        for box in pred_boxes:
-            cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
-        #cv2.imshow("GMM Detection", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+    # Convert mask to 8-bit format for visualization
+    mask_8bit = fg_mask_binary.astype(np.uint8)
 
-        key = cv2.waitKey(30) & 0xFF
-        if key == 27:  # ESC
-            break
+    # Convert grayscale mask to color for visualization
+    mask_colored = cv2.cvtColor(mask_8bit, cv2.COLOR_GRAY2BGR)
 
-    cv2.destroyAllWindows()
+    # Extract predicted bounding boxes from the foreground mask
+    pred_boxes = metrics.extract_bounding_boxes(fg_mask_binary, min_area=1000)
+    gt_boxes = gt_dict.get(idx, [])
 
-    # Compute mAP after all frames processed
-    video_ap_gmm = metrics.compute_video_average_precision(all_pred_boxes_gmm, all_gt_boxes_gmm, iou_threshold=0.5)
-    print(f"GMM Method Video mAP (Cars): {video_ap_gmm:.4f}")
+    # Store predictions and ground truth for later evaluation
+    all_pred_boxes_gmm.append(pred_boxes)
+    all_gt_boxes_gmm.append(gt_boxes)
+
+    # Evaluate detection performance (IoU, precision, recall)
+    if gt_boxes:
+        precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
+        avg_iou = np.mean(iou_list) if iou_list else 0.0
+        print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
+    else:
+        print(f"Frame {idx}: No ground truth available.")
+
+    # Draw predicted bounding boxes in green
+    for box in pred_boxes:
+        cv2.rectangle(mask_colored, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)  # Green
+
+    # Draw ground truth bounding boxes in red
+    for gt_box in gt_boxes:
+        cv2.rectangle(mask_colored, (int(gt_box[0]), int(gt_box[1])), (int(gt_box[2]), int(gt_box[3])), (255, 0, 0), 2)  # Red
+
+    # Display the mask with detected objects
+    cv2.imshow("Mask with Detections", mask_colored)
+
+    key = cv2.waitKey(30) & 0xFF
+    if key == 27:  # Press ESC to exit
+        break
+
+# Release all OpenCV windows
+cv2.destroyAllWindows()
+
+# Compute mean Average Precision (mAP) for object detection using the GMM method
+video_ap_gmm = metrics.compute_video_average_precision(all_pred_boxes_gmm, all_gt_boxes_gmm, iou_threshold=0.5)
+print(f"GMM Method Video mAP (Cars): {video_ap_gmm:.4f}")
+
