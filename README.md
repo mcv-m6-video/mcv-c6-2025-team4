@@ -69,14 +69,14 @@ You can install all the required dependencies by using the `requirements.txt` fi
 
 ### `main.py`
 
-This script runs the adaptive Gaussian model for background estimation. It updates the background model dynamically for each pixel, adjusting as new frames are processed.
+This script runs the non adaptive Gaussian model for background estimation.
 
 - **Usage**: `python main.py`
-- **Description**: The adaptive model updates Gaussian parameters as the video progresses. This dynamic model is designed to handle environmental changes (e.g., moving shadows, lighting changes).
+- **Description**: The non adaptive model infers the background once and uses it to estimate foregroudn objects.
 
 ### `main_adaptive.py`
 
-This script also runs the adaptive Gaussian model, specifically designed for the adaptive background estimation technique.
+This script runs the adaptive Gaussian model, specifically designed for the adaptive background estimation technique.
 
 - **Usage**: `python main_adaptive.py`
 - **Description**: This script uses an adaptive approach to background modeling, where the Gaussian parameters are updated over time as new video frames are processed.
