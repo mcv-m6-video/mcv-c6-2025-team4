@@ -30,7 +30,7 @@ lsbp = cv2.bgsegm.createBackgroundSubtractorLSBP()
 
 # Abrir el video con OpenCV VideoCapture
 cap = cv2.VideoCapture(video_path)
-cap.set(cv2.CAP_PROP_POS_FRAMES, training_end)  # Empezar en la zona de test
+# cap.set(cv2.CAP_PROP_POS_FRAMES, training_end)  # Empezar en la zona de test
 
 # Obtener propiedades del video
 fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -51,7 +51,7 @@ print("Processing frames and calculating mAP@50...")
 all_pred_boxes = {"MOG": [], "MOG2": [], "LSBP": []}
 all_gt_boxes = {"MOG": [], "MOG2": [], "LSBP": []}
 
-frame_idx = training_end  # Comenzamos desde la zona de test
+frame_idx = 0  # Comenzamos desde la zona de test
 while cap.isOpened():
     ret, frame_rgb = cap.read()
     if not ret:
@@ -80,7 +80,7 @@ while cap.isOpened():
         ("LSBP", fg_mask_lsbp),
     ]:
         # Extraer las cajas de la máscara predicha
-        pred_boxes = metrics.extract_bounding_boxes(fg_mask, min_area=500)
+        pred_boxes = metrics.extract_bounding_boxes(fg_mask, min_area=1500)
         
         # Almacenar las predicciones y las GT para este método
         all_pred_boxes[method_name].append(pred_boxes)
