@@ -11,7 +11,7 @@ def get_total_frames(video_path):
     cap.release()
     return total
 
-def load_video_frame(video_path, index,color='rgb'):
+def load_video_frame(video_path, index):
     video = cv2.VideoCapture(video_path)
 
     if not video.isOpened():
@@ -27,27 +27,13 @@ def load_video_frame(video_path, index,color='rgb'):
     # Check whether it was read
     if not ret:
         raise IOError("Cannot read video file")
-
-    if color=='rgb':
-        # Convert frame from BGR to RGB
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    else:
-        hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        _,_,v = cv2.split(hsvImage)
-
-        live_value = np.mean(v)
-        brightness_factor = 128 / live_value 
-        hsvImage[...,2] = cv2.multiply(hsvImage[...,2],brightness_factor)
-        frame_rgb = cv2.cvtColor(hsvImage, cv2.COLOR_HSV2RGB)
-        
-    frames.append(frame_rgb)
-
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     # Release video file
     video.release()
     return frame
 
 
-def load_frames_list(video_path, start, end):
+def load_frames_list(video_path, start, end,color='rgb'):
     """
     Loads and returns a list of frames from the video starting at frame 'start'
     and ending at frame 'end' (end is exclusive).
@@ -66,9 +52,20 @@ def load_frames_list(video_path, start, end):
         if not ret:
             # Stop if we reach the end of the video or encounter a read error
             break
-        # Convert frame from BGR to RGB
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frames.append(frame_rgb)
+        
+        if color=='rgb':
+            # Convert frame from BGR to RGB
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        else:
+            hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            _,_,v = cv2.split(hsvImage)
+    
+            live_value = np.mean(v)
+            brightness_factor = 128 / live_value 
+            hsvImage[...,2] = cv2.multiply(hsvImage[...,2],brightness_factor)
+            frame_rgb = cv2.cvtColor(hsvImage, cv2.COLOR_HSV2RGB)
+            
+        frames.append(frame_rgb)# Convert frame from BGR to RGB
 
     video.release()
     return frames
