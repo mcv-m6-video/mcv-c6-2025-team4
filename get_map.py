@@ -5,7 +5,7 @@ import threading
 from src import read_data, metrics
 
 # -------------------------
-# 1. Configuración inicial
+# 1. Initial configuration
 # -------------------------
 video_paths = [
     "./output_videos/MOG2.avi",
@@ -17,7 +17,7 @@ video_paths = [
 
 path_annotation = "./data/ai_challenge_s03_c010-full_annotation.xml"
 
-# Cargar anotaciones de ground truth
+# load ground truth
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
 gt_dict = {}
 for item in gt_data:
@@ -25,15 +25,14 @@ for item in gt_data:
     box = item["bbox"][0].tolist() if isinstance(item["bbox"], np.ndarray) else item["bbox"]
     gt_dict.setdefault(frame_no, []).append(box)
 
-# Diferentes valores de min_area a probar
+# different min area values to test
 min_area_values = [500, 750, 1000, 1500, 2000]
 
-# Almacenar resultados
 results = {video: {} for video in video_paths}
 
 
 # -------------------------
-# 2. Función para procesar un video
+# 2. funtion to process video
 # -------------------------
 def process_video(video_path):
     global results
@@ -48,39 +47,38 @@ def process_video(video_path):
     for min_area in min_area_values:
         print(f"  -> Evaluando min_area = {min_area}...")
 
-        # Inicializar listas de predicciones y GT
+        # initialize prediction and gt boxes
         all_pred_boxes = []
         all_gt_boxes = []
 
         frame_idx = 0
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reiniciar video
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # restart video
 
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
-                break  # Fin del video
+                break  # end of video
 
             gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             gt_boxes = gt_dict.get(frame_idx, [])
 
-            # Extraer bounding boxes con la configuración actual
+            # extract bounding boxes
             pred_boxes = metrics.extract_bounding_boxes(gray_frame, min_area=min_area)
 
             all_pred_boxes.append(pred_boxes)
             all_gt_boxes.append(gt_boxes)
             frame_idx += 1
 
-        # Calcular mAP@50 para este min_area
+        # Obtain mAP@50 for min_area
         final_map50 = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
 
-        # Guardar resultado en el diccionario
         results[video_path][min_area] = final_map50
 
     cap.release()
 
 
 # -------------------------
-# 3. Procesar los 5 videos en paralelo
+# 3. process 5 videos
 # -------------------------
 threads = []
 for video in video_paths:
@@ -88,12 +86,12 @@ for video in video_paths:
     threads.append(thread)
     thread.start()
 
-# Esperar a que todos los hilos terminen
+# wait for the threads to end
 for thread in threads:
     thread.join()
 
 # -------------------------
-# 4. Imprimir resultados finales
+# 4. print results
 # -------------------------
 print("\nResultados Finales (mAP@50):")
 for video, min_area_results in results.items():
