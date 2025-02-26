@@ -67,13 +67,9 @@ video_path = os.path.join(path, "vdo.avi")
 # Determine the total number of frames in the video.
 total_frames = load_data.get_total_frames(video_path)
 
-# Creamos la instancia del modelo gaussiano adaptativo
-adaptive_model = gaussian_modelling.AdaptiveGaussianModel(rho=0.01, threshold_factor=4)
-
 # Usamos el 25% de los frames para inicializar el modelo de fondo
 training_end = int(total_frames * 0.25)
 training_frames = load_frames_list(video_path, start=0, end=training_end)
-adaptive_model.initialize(training_frames)
 print("Parámetros de fondo adaptativo inicializados correctamente!!!")
 
 # Cargamos las anotaciones de ground truth (suponiendo formato XML)
@@ -94,11 +90,6 @@ for item in gt_data:
 # Opcional: instanciar el filtro temporal (si se desea refinar la máscara en tiempo real)
 temporal_filter = RealTimeTemporalMedianFilter(window_size=5)
 
-ap_list = []
-all_pred_boxes = []
-all_gt_boxes = []
-
-f = open("adaptive.txt", "w+")
 
 # Video path
 video_path = "./data/AICity_data/train/S03/c010/vdo.avi"
@@ -116,65 +107,87 @@ frame_size = (frame_width, frame_height)
 
 # Inicializar VideoWriters para cada método
 fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec AVI
-out_mask = cv2.VideoWriter(os.path.join(output_dir, "meanchannels_adaptive4_0.01_mask.avi"), fourcc, fps, frame_size, isColor=False)
-out_frames = cv2.VideoWriter(os.path.join(output_dir, "meanchannels_adaptive4_0.01_frames.avi"), fourcc, fps, frame_size, isColor=True)
+
+maps={}
+for alpha in range(1,21):
+    for rho in [0,0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]:
+        print('Alpha '+str(alpha)+' and Rho '+str(rho))
+        out_mask = cv2.VideoWriter(os.path.join(output_dir, "a_"+str(alpha)+"_r_"+str(rho)+"_mask.avi"), fourcc, fps, frame_size, isColor=False)
+        out_frames = cv2.VideoWriter(os.path.join(output_dir, "a_"+str(alpha)+"_r_"+str(rho)+"_frames.avi"), fourcc, fps, frame_size, isColor=True)
+
+        ap_list = []
+        all_pred_boxes = []
+        all_gt_boxes = []
+
+        f = open("adaptive.txt", "w+")
+
+        # Creamos la instancia del modelo gaussiano adaptativo
+        adaptive_model = gaussian_modelling.AdaptiveGaussianModel(rho=rho, threshold_factor=alpha)
+        adaptive_model.initialize(training_frames)
+
+        # Procesamos los frames de prueba (el 75% restante)
+        test_frames = load_frames_list(video_path, start=training_end, end=total_frames)
+        for idx, frame_rgb in tqdm(enumerate(test_frames, start=training_end)):
+
+            # Procesamos el frame: se obtiene la máscara de fondo y se actualiza el modelo de forma adaptativa
+            background_mask = adaptive_model.process_frame(frame_rgb)
+
+            # (Opcional) Aplicar filtro temporal para suavizar la máscara
+            # refined_mask = temporal_filter.update(background_mask)
+            # Usamos refined_mask en lugar de background_mask si se activa el filtro
+
+            background_mask = cv2.bitwise_not(background_mask)
+
+            # Extraer bounding boxes a partir de la máscara de primer plano (suponiendo que metrics.extract_bounding_boxes esté definido)
+            pred_boxes = metrics.extract_bounding_boxes(background_mask, min_area=500)
+            gt_boxes = gt_dict.get(idx, [])
+
+            # Append boxes for video-level AP calculation
+            all_pred_boxes.append(pred_boxes)
+            all_gt_boxes.append(gt_boxes)
+
+            # Evaluamos a nivel de bounding box (IoU, precisión, recall)
+            if gt_boxes:
+                precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
+                avg_iou = np.mean(iou_list) if iou_list else 0.0
+                #print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
+                #f.write(f"{idx}: Avg IoU={avg_iou:.2f}\n")
+            #else:
+                #print(f"Frame {idx}: No hay GT disponible.")
+
+            # Para evaluación a nivel de píxel: comparamos la máscara predicha con la máscara GT
+            #if gt_boxes:
+            #    gt_mask = metrics.generate_gt_mask(frame_rgb.shape, gt_boxes)
+            #    TPR, FPR = metrics.compute_pixel_metrics(background_mask, gt_mask)
+            #    print(f"Frame {idx}: Métricas a nivel de píxel - TPR={TPR:.2f}, FPR={FPR:.2f}")
+
+            # Visualización: dibujar los bounding boxes predichos en el frame
+            frame_rgb=cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+            for box in pred_boxes:
+                cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
+            for box in gt_boxes:
+                cv2.rectangle(frame_rgb, (int(np.round(box[0])),int(np.round(box[1]))), (int(np.round(box[2])),int(np.round(box[3]))), (0, 255, 0), 2)
+
+            out_mask.write(background_mask)
+            out_frames.write(frame_rgb)
+
+            #cv2.imshow("Frame con Detecciones", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+            #cv2.imshow("Máscara de Primer Plano", background_mask)
+            key = cv2.waitKey(90) & 0xFF
+            if key == 27:  # ESC para salir
+                break
+
+        video_ap = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
+        print(f"Video mAP (AP for class 'car'): {video_ap:.4f}")
+        cap.release()
+        out_frames.release()
+        out_mask.release()
+
+        # maps[(alpha, rho)]=video_ap
+        with open("map_results.txt", "a") as f:
+            f.write(f"alpha={alpha}, rho={rho}, mAP={video_ap}\n")
 
 
-# Procesamos los frames de prueba (el 75% restante)
-test_frames = load_frames_list(video_path, start=training_end, end=total_frames)
-
-for idx, frame_rgb in tqdm(enumerate(test_frames, start=training_end)):
-    
-    background_mask = adaptive_model.process_frame(frame_rgb)
-    
-    
-    # (Opcional) Aplicar filtro temporal para suavizar la máscara
-    # refined_mask = temporal_filter.update(background_mask)
-    # Usamos refined_mask en lugar de background_mask si se activa el filtro
-
-    background_mask = cv2.bitwise_not(background_mask)
-
-    # Extraer bounding boxes a partir de la máscara de primer plano (suponiendo que metrics.extract_bounding_boxes esté definido)
-    pred_boxes = metrics.extract_bounding_boxes(background_mask, min_area=500)
-    gt_boxes = gt_dict.get(idx, [])
-
-    # Append boxes for video-level AP calculation
-    all_pred_boxes.append(pred_boxes)
-    all_gt_boxes.append(gt_boxes)
-
-    # Evaluamos a nivel de bounding box (IoU, precisión, recall)
-    if gt_boxes:
-        precision, recall, iou_list, tp, fp, fn = metrics.evaluate_detections(pred_boxes, gt_boxes, iou_threshold=0.5)
-        avg_iou = np.mean(iou_list) if iou_list else 0.0
-        #print(f"Frame {idx}: Avg IoU={avg_iou:.2f}")
-        #f.write(f"{idx}: Avg IoU={avg_iou:.2f}\n")
-    #else:
-        #print(f"Frame {idx}: No hay GT disponible.")
-
-    # Para evaluación a nivel de píxel: comparamos la máscara predicha con la máscara GT
-    #if gt_boxes:
-    #    gt_mask = metrics.generate_gt_mask(frame_rgb.shape, gt_boxes)
-    #    TPR, FPR = metrics.compute_pixel_metrics(background_mask, gt_mask)
-    #    print(f"Frame {idx}: Métricas a nivel de píxel - TPR={TPR:.2f}, FPR={FPR:.2f}")
-
-    # Visualización: dibujar los bounding boxes predichos en el frame
-    frame_rgb=cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-    for box in pred_boxes:
-        cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
-    for box in gt_boxes:
-        cv2.rectangle(frame_rgb, (int(np.round(box[0])),int(np.round(box[1]))), (int(np.round(box[2])),int(np.round(box[3]))), (0, 255, 0), 2)
-
-    # cv2.imshow("Frame con Detecciones", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
-    # cv2.imshow("Máscara de Primer Plano", background_mask)
-    out_mask.write(background_mask)
-    out_frames.write(frame_rgb)
-    key = cv2.waitKey(90) & 0xFF
-    if key == 27:  # ESC para salir
-        break
-
-video_ap = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
-print(f"Video mAP (AP for class 'car'): {video_ap:.4f}")
-cap.release()
-out_frames.release()
-out_mask.release()
-cv2.destroyAllWindows()
+        print('Saved video at '+str(os.path.join(output_dir, "a_"+str(alpha)+"_r_"+str(rho)+"_mask.avi")))
+       
+        cv2.destroyAllWindows()

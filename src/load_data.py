@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 
 def get_total_frames(video_path):
     """
@@ -35,7 +36,7 @@ def load_video_frame(video_path, index):
     return frame
 
 
-def load_frames_list(video_path, start, end):
+def load_frames_list(video_path, start, end,color='rgb'):
     """
     Loads and returns a list of frames from the video starting at frame 'start'
     and ending at frame 'end' (end is exclusive).
@@ -54,8 +55,18 @@ def load_frames_list(video_path, start, end):
         if not ret:
             # Stop if we reach the end of the video or encounter a read error
             break
-        # Convert frame from BGR to RGB
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if color=='rgb':
+            # Convert frame from BGR to RGB
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        else:
+            hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            _,_,v = cv2.split(hsvImage)
+
+            live_value = np.mean(v)
+            brightness_factor = 128 / live_value 
+            hsvImage[...,2] = cv2.multiply(hsvImage[...,2],brightness_factor)
+            frame_rgb = cv2.cvtColor(hsvImage, cv2.COLOR_HSV2RGB)
+        
         frames.append(frame_rgb)
 
     video.release()

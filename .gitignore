@@ -3,3 +3,7 @@ data/
 GMM.txt
 GMM Method Video mAP.txt
 adaptive.txt
+*.txt
+*.png
+hsv.py
+/output_videos

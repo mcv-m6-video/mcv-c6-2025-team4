@@ -80,6 +80,29 @@ test_frames = load_data.load_frames_list(video_path, start=training_end, end=tot
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
 # Organize GT per frame; here we assume gt_data is a list of dictionaries with keys "frame" and "bbox"
 gt_dict = {}
+
+
+# Video path
+video_path = "./data/AICity_data/train/S03/c010/vdo.avi"
+output_dir = "./output_videos"
+
+# Abrir el video con OpenCV VideoCapture
+cap = cv2.VideoCapture(video_path)
+cap.set(cv2.CAP_PROP_POS_FRAMES, training_end)  # Empezar en la zona de test
+
+# Obtener propiedades del video
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+frame_size = (frame_width, frame_height)
+
+# Inicializar VideoWriters para cada método
+fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec AVI
+out_mask = cv2.VideoWriter(os.path.join(output_dir, "nonadaptive10_mask.avi"), fourcc, fps, frame_size, isColor=False)
+out_frames = cv2.VideoWriter(os.path.join(output_dir, "nonadaptive10_frames.avi"), fourcc, fps, frame_size, isColor=True)
+
+
+
 for item in gt_data:
     # Solo consideramos vehículos en movimiento (parked == False)
     if not item.get("parked", False):
@@ -91,7 +114,7 @@ for item in gt_data:
         else:
             gt_dict[frame_no] = [box]
 
-for thrs in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
+for thrs in [10]:
 
     temporal_filter = RealTimeTemporalMedianFilter(window_size=5)
     all_pred_boxes = []
@@ -124,6 +147,14 @@ for thrs in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
         # Optionally: Display the frame, mask, and draw bounding boxes on the frame for visualization.
         for box in pred_boxes:
             cv2.rectangle(frame_rgb, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
+        for box in gt_boxes:
+            cv2.rectangle(frame_rgb, (int(np.round(box[0])),int(np.round(box[1]))), (int(np.round(box[2])),int(np.round(box[3]))), (0, 255, 0), 2)
+
+        # cv2.imshow("Frame con Detecciones", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+        # cv2.imshow("Máscara de Primer Plano", background_mask)
+        out_mask.write(background_mask)
+        out_frames.write(frame_rgb)
+
         #cv2.imshow("Frame with Detections", cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
         #cv2.imshow("Foreground Mask", background_mask)
         key = cv2.waitKey(30) & 0xFF
@@ -133,4 +164,7 @@ for thrs in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
     video_ap = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
     print(f"Video mAP (AP for class 'car'): {video_ap:.4f}")
 
+    cap.release()
+    out_frames.release()
+    out_mask.release()
     cv2.destroyAllWindows()

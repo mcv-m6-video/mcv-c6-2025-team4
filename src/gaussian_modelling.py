@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-
+import os
 class NonRecursiveGaussianModel:
     def __init__(self):
         super().__init__()
@@ -72,7 +72,17 @@ class AdaptiveGaussianModel:
         """
         Initializes the background model using a list of training frames.
         """
-        self.background_mean, self.background_variance = self.compute_gaussian_background(training_frames)
+        if os.path.exists('bg_mean_hsv.txt'):
+            background_mean = np.loadtxt('bg_mean.txt')
+            self.background_mean=background_mean.reshape(np.shape(training_frames[0]))
+            background_variance = np.loadtxt('bg_var.txt')
+            self.background_variance=background_variance.reshape(np.shape(training_frames[0]))
+        else:
+            self.background_mean, self.background_variance = self.compute_gaussian_background(training_frames)           
+            np.savetxt('bg_var.txt',np.array(self.background_variance).flatten())
+            np.savetxt('bg_mean.txt',np.array(self.background_mean).flatten())
+
+        # self.background_mean, self.background_variance = self.compute_gaussian_background(training_frames)
 
     def classify_frame(self, frame):
         """
