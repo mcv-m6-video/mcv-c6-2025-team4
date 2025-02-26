@@ -11,7 +11,7 @@ def get_total_frames(video_path):
     cap.release()
     return total
 
-def load_video_frame(video_path, index):
+def load_video_frame(video_path, index,color='rgb'):
     video = cv2.VideoCapture(video_path)
 
     if not video.isOpened():
@@ -28,7 +28,19 @@ def load_video_frame(video_path, index):
     if not ret:
         raise IOError("Cannot read video file")
 
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    if color=='rgb':
+        # Convert frame from BGR to RGB
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    else:
+        hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        _,_,v = cv2.split(hsvImage)
+
+        live_value = np.mean(v)
+        brightness_factor = 128 / live_value 
+        hsvImage[...,2] = cv2.multiply(hsvImage[...,2],brightness_factor)
+        frame_rgb = cv2.cvtColor(hsvImage, cv2.COLOR_HSV2RGB)
+        
+    frames.append(frame_rgb)
 
     # Release video file
     video.release()
