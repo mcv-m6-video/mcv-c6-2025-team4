@@ -1,1 +1,0 @@
-model=FCOS_ResNet50_FPN_Weights, mAP=0.3758915639990553
