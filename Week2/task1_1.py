@@ -48,15 +48,13 @@ gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
 # Organize ground truth data by frame number
 gt_dict = {}
 for item in gt_data:
-    # Only consider moving vehicles (ignore parked cars)
-    if not item.get("parked", False):
-        frame_no = item["frame"]
-        # Convert bounding box to list if it is a NumPy array
-        box = item["bbox"][0].tolist() if isinstance(item["bbox"], np.ndarray) else item["bbox"]
-        if frame_no in gt_dict:
-            gt_dict[frame_no].append(box)
-        else:
-            gt_dict[frame_no] = [box]
+    frame_no = item["frame"]
+    # Convert bounding box to list if it is a NumPy array
+    box = item["bbox"][0].tolist() if isinstance(item["bbox"], np.ndarray) else item["bbox"]
+    if frame_no in gt_dict:
+        gt_dict[frame_no].append(box)
+    else:
+        gt_dict[frame_no] = [box]
 
 models= ["RetinaNet_ResNet50_FPN_Weights",
          "FasterRCNN_MobileNet_V3_Large_320_FPN_Weights",
@@ -164,9 +162,9 @@ for m in models:
             
             gt_boxes = gt_dict.get(idx, [])
             # pred_boxes=metrics.merge_nearby_boxes(pred_boxes)
-            print('gt',gt_boxes)
+            # print('gt',gt_boxes)
 
-            print('pred',pred_boxes)
+            # print('pred',pred_boxes)
             # print(gt_boxes)
 
             # Store predictions and ground truth for later AP computation
@@ -193,7 +191,7 @@ for m in models:
             
 
             # Display results
-            cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            # cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
             out_frames.write(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
 
