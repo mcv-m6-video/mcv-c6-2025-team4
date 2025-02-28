@@ -7,7 +7,7 @@ from PIL import Image
 import torch
 
 from torchvision.io.image import decode_image
-from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
+from torchvision.models.detection import retinanet_resnet50_fpn, RetinaNet_ResNet50_FPN_Weights,retinanet_resnet50_fpn_v2, RetinaNet_ResNet50_FPN_V2_Weights,fasterrcnn_resnet50_fpn, FasterRCNN_ResNet50_FPN_Weights,fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights,fasterrcnn_mobilenet_v3_large_fpn, FasterRCNN_MobileNet_V3_Large_FPN_Weights,fasterrcnn_mobilenet_v3_large_320_fpn, FasterRCNN_MobileNet_V3_Large_320_FPN_Weights,fcos_resnet50_fpn, FCOS_ResNet50_FPN_Weights,ssd300_vgg16, SSD300_VGG16_Weights,ssdlite320_mobilenet_v3_large, SSDLite320_MobileNet_V3_Large_Weights
 from torchvision.utils import draw_bounding_boxes
 from torchvision.transforms.functional import to_pil_image, pil_to_tensor
 
@@ -40,7 +40,7 @@ training_end = int(total_frames * 0.25)
 # test_frames = load_data.load_frames_list(video_path, start=training_end, end=total_frames)
 
 
-test_frames = load_data.load_frames_list(video_path, start=0, end=training_end)
+test_frames = load_data.load_frames_list(video_path, start=0, end=total_frames)
 
 # Load ground truth annotations from XML file
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
@@ -66,54 +66,46 @@ models= ["RetinaNet_ResNet50_FPN_Weights",
         "RetinaNet_ResNet50_FPN_V2_Weights",
         "SSD300_VGG16_Weights",
         "SSDLite320_MobileNet_V3_Large_Weights",
-        "FCOS_ResNet50_FPN_Weights",]
+        "FCOS_ResNet50_FPN_Weights"]
 
 for m in models:
     print(m)
     if m=="FCOS_ResNet50_FPN_Weights":
-        from torchvision.models.detection import fcos_resnet50_fpn, FCOS_ResNet50_FPN_Weights
-        weights = FCOS_ResNet50_FPN_Weights.DEFAULT
-        model = fcos_resnet50_fpn(weights=weights, box_score_thresh=0.9)
+        
+        weights = FCOS_ResNet50_FPN_Weights.COCO_V1
+        model = fcos_resnet50_fpn(weights=weights, box_score_thresh=0.99)
 
     elif m=="FasterRCNN_MobileNet_V3_Large_320_FPN_Weights":
-        from torchvision.models.detection import fasterrcnn_mobilenet_v3_large_320_fpn, FasterRCNN_MobileNet_V3_Large_320_FPN_Weights
-        weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.DEFAULT
-        model = fasterrcnn_mobilenet_v3_large_320_fpn(weights=weights, box_score_thresh=0.9)
+        weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.COCO_V1
+        model = fasterrcnn_mobilenet_v3_large_320_fpn(weights=weights, box_score_thresh=0.99)
 
     elif m=="FasterRCNN_MobileNet_V3_Large_FPN_Weights":
-        from torchvision.models.detection import fasterrcnn_mobilenet_v3_large_fpn, FasterRCNN_MobileNet_V3_Large_FPN_Weights
-        weights = FasterRCNN_MobileNet_V3_Large_FPN_Weights.DEFAULT
-        model = fasterrcnn_mobilenet_v3_large_fpn(weights=weights, box_score_thresh=0.9)
+        weights = FasterRCNN_MobileNet_V3_Large_FPN_Weights.COCO_V1
+        model = fasterrcnn_mobilenet_v3_large_fpn(weights=weights, box_score_thresh=0.99)
 
     elif m=="FasterRCNN_ResNet50_FPN_V2_Weights":
-        from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
-        weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
-        model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=0.9)
+        weights = FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1
+        model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=0.99)
 
     elif m=="FasterRCNN_ResNet50_FPN_Weights":
-        from torchvision.models.detection import fasterrcnn_resnet50_fpn, FasterRCNN_ResNet50_FPN_Weights
-        weights = FasterRCNN_ResNet50_FPN_Weights.DEFAULT
-        model = fasterrcnn_resnet50_fpn(weights=weights, box_score_thresh=0.9)
+        weights = FasterRCNN_ResNet50_FPN_Weights.COCO_V1
+        model = fasterrcnn_resnet50_fpn(weights=weights, box_score_thresh=0.99)
 
     elif m=="RetinaNet_ResNet50_FPN_V2_Weights":
-        from torchvision.models.detection import retinanet_resnet50_fpn_v2, RetinaNet_ResNet50_FPN_V2_Weights
-        weights = RetinaNet_ResNet50_FPN_V2_Weights.DEFAULT
-        model = retinanet_resnet50_fpn_v2(weights=weights, box_score_thresh=0.9)
+        weights = RetinaNet_ResNet50_FPN_V2_Weights.COCO_V1
+        model = retinanet_resnet50_fpn_v2(weights=weights, box_score_thresh=0.99)
 
     elif m=="RetinaNet_ResNet50_FPN_Weights":
-        from torchvision.models.detection import retinanet_resnet50_fpn, RetinaNet_ResNet50_FPN_Weights
-        weights = RetinaNet_ResNet50_FPN_Weights.DEFAULT
-        model = retinanet_resnet50_fpn(weights=weights, box_score_thresh=0.9)
+        weights = RetinaNet_ResNet50_FPN_Weights.COCO_V1
+        model = retinanet_resnet50_fpn(weights=weights, box_score_thresh=0.99)
 
     elif m=="SSD300_VGG16_Weights":
-        from torchvision.models.detection import ssd300_vgg16, SSD300_VGG16_Weights
-        weights = SSD300_VGG16_Weights.DEFAULT
-        model = ssd300_vgg16(weights=weights, box_score_thresh=0.9)
+        weights = SSD300_VGG16_Weights.COCO_V1
+        model = ssd300_vgg16(weights=weights, box_score_thresh=0.99)
 
     elif m=="SSDLite320_MobileNet_V3_Large_Weights":
-        from torchvision.models.detection import ssdlite320_mobilenet_v3_large, SSDLite320_MobileNet_V3_Large_Weights
-        weights = SSDLite320_MobileNet_V3_Large_Weights.DEFAULT
-        model = ssdlite320_mobilenet_v3_large(weights=weights, box_score_thresh=0.9)
+        weights = SSDLite320_MobileNet_V3_Large_Weights.COCO_V1
+        model = ssdlite320_mobilenet_v3_large(weights=weights, box_score_thresh=0.99)
 
     
     model.to(device)
@@ -121,11 +113,11 @@ for m in models:
     model.eval()
 
     # Step 1: Initialize model with the best available weights
-    weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
-    model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=0.9)
-    model.to(device)
-    next(model.parameters()).device
-    model.eval()
+    # weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
+    # model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=0.9)
+    # model.to(device)
+    # next(model.parameters()).device
+    # model.eval()
 
     # Step 2: Initialize the inference transforms
     preprocess = weights.transforms()
@@ -157,23 +149,24 @@ for m in models:
 
             # Step 4: Use the model and visualize the prediction
             prediction = model(batch)[0]
-
-
             labels = [weights.meta["categories"][i] for i in prediction["labels"]]
             
             # print(prediction)
             # print(labels)
             pred_boxes=[]
-            new_labels=[]
             for i, pred in enumerate(prediction['boxes']):
             
                 if labels[i] == 'car':
                     pred_boxes.append(pred.detach().cpu().numpy())
-                    new_labels.append(labels[i])
             # labels = [weights.meta["categories"][i] for i in pred_boxes["labels"]]
             # print(pred_boxes)
 
+            
             gt_boxes = gt_dict.get(idx, [])
+            # pred_boxes=metrics.merge_nearby_boxes(pred_boxes)
+            print('gt',gt_boxes)
+
+            print('pred',pred_boxes)
             # print(gt_boxes)
 
             # Store predictions and ground truth for later AP computation
@@ -200,7 +193,7 @@ for m in models:
             
 
             # Display results
-            # cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
             out_frames.write(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
 
