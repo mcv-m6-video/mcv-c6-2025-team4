@@ -72,53 +72,40 @@ def remove_noise(mask, kernel_size=3):
     closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
 
     return closed
-
-def boxes_overlap(boxA, boxB):
+def iou(boxA, boxB):
     """
-    Checks if two bounding boxes overlap.
+    Computes the Intersection over Union (IoU) of two bounding boxes.
 
     Parameters:
     - boxA, boxB: list
         Bounding boxes defined as [x_min, y_min, x_max, y_max].
 
     Returns:
-    - bool: True if boxes overlap, False otherwise.
+    - float: IoU value between 0 and 1.
     """
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
     xB = min(boxA[2], boxB[2])
     yB = min(boxA[3], boxB[3])
-    return (xA < xB) and (yA < yB)
 
-def is_nearby(boxA, boxB, merge_distance):
+    inter_area = max(0, xB - xA) * max(0, yB - yA)
+    boxA_area = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
+    boxB_area = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
+    union_area = boxA_area + boxB_area - inter_area
+
+    return inter_area / union_area if union_area > 0 else 0
+
+def merge_nearby_boxes(boxes,  iou_threshold=0.99):
     """
-    Determines if two bounding boxes are within a specified merging distance.
-
-    Parameters:
-    - boxA, boxB: list
-        Bounding boxes defined as [x_min, y_min, x_max, y_max].
-    - merge_distance: int
-        Maximum allowed distance for merging.
-
-    Returns:
-    - bool: True if boxes are close enough to merge, False otherwise.
-    """
-    return (
-        abs(boxA[0] - boxB[0]) <= merge_distance and
-        abs(boxA[1] - boxB[1]) <= merge_distance and
-        abs(boxA[2] - boxB[2]) <= merge_distance and
-        abs(boxA[3] - boxB[3]) <= merge_distance
-    )
-
-def merge_nearby_boxes(boxes, merge_distance=100):
-    """
-    Merges bounding boxes that overlap or are nearby.
+    Merges bounding boxes that overlap beyond a given IoU threshold.
 
     Parameters:
     - boxes: list of lists
         List of bounding boxes [x_min, y_min, x_max, y_max].
     - merge_distance: int, optional
         Distance threshold for merging nearby boxes.
+    - iou_threshold: float, optional
+        Minimum IoU required to merge boxes.
 
     Returns:
     - list: Merged bounding boxes.
@@ -128,14 +115,17 @@ def merge_nearby_boxes(boxes, merge_distance=100):
         merged = False
         new_boxes = []
         skip = [False] * len(boxes)
+
         for i in range(len(boxes)):
             if skip[i]:
                 continue
             current_box = boxes[i]
+
             for j in range(i + 1, len(boxes)):
                 if skip[j]:
                     continue
-                if boxes_overlap(current_box, boxes[j]) or is_nearby(current_box, boxes[j], merge_distance):
+                
+                if iou(current_box, boxes[j]) > iou_threshold:
                     # Merge bounding boxes
                     current_box = [
                         min(current_box[0], boxes[j][0]),
@@ -145,8 +135,10 @@ def merge_nearby_boxes(boxes, merge_distance=100):
                     ]
                     skip[j] = True
                     merged = True
+
             new_boxes.append(current_box)
         boxes = new_boxes
+
     return boxes
 
 def extract_bounding_boxes(mask, min_area=800, merge_distance=40):

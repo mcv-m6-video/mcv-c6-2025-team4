@@ -40,7 +40,7 @@ training_end = int(total_frames * 0.25)
 # test_frames = load_data.load_frames_list(video_path, start=training_end, end=total_frames)
 
 
-test_frames = load_data.load_frames_list(video_path, start=0, end=total_frames)
+test_frames = load_data.load_frames_list(video_path, start=0, end=training_end)
 
 # Load ground truth annotations from XML file
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
@@ -58,15 +58,15 @@ for item in gt_data:
         else:
             gt_dict[frame_no] = [box]
 
-models= ["FCOS_ResNet50_FPN_Weights",
+models= ["RetinaNet_ResNet50_FPN_Weights",
          "FasterRCNN_MobileNet_V3_Large_320_FPN_Weights",
          "FasterRCNN_MobileNet_V3_Large_FPN_Weights",
         "FasterRCNN_ResNet50_FPN_V2_Weights",
         "FasterRCNN_ResNet50_FPN_Weights",
         "RetinaNet_ResNet50_FPN_V2_Weights",
-        "RetinaNet_ResNet50_FPN_Weights",
         "SSD300_VGG16_Weights",
-        "SSDLite320_MobileNet_V3_Large_Weights"]
+        "SSDLite320_MobileNet_V3_Large_Weights",
+        "FCOS_ResNet50_FPN_Weights",]
 
 for m in models:
     print(m)
@@ -157,6 +157,8 @@ for m in models:
 
             # Step 4: Use the model and visualize the prediction
             prediction = model(batch)[0]
+
+
             labels = [weights.meta["categories"][i] for i in prediction["labels"]]
             
             # print(prediction)
