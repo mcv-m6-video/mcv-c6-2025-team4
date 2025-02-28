@@ -15,6 +15,10 @@ from torchvision.transforms.functional import to_pil_image, pil_to_tensor
 from src import load_data, metrics, read_data
 from src.load_data import load_video_frame, load_frames_list
 
+# torch.cuda.set_device(0)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+np.random.seed(0)
+print(device)
 
 # Paths to dataset and annotations
 path = "./data/AICity_data/train/S03/c010"
@@ -34,7 +38,7 @@ total_frames = load_data.get_total_frames(video_path)
 training_end = int(total_frames * 0.25)
 # training_frames = load_data.load_frames_list(video_path, start=0, end=training_end)
 test_frames = load_data.load_frames_list(video_path, start=training_end, end=total_frames)
-
+test_frames=torch.Tensor(test_frames).to(device) 
 # Load ground truth annotations from XML file
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
 
@@ -51,7 +55,6 @@ for item in gt_data:
         else:
             gt_dict[frame_no] = [box]
 
-device = torch.device("cuda")
 
 # Step 1: Initialize model with the best available weights
 weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
@@ -82,62 +85,63 @@ fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec AVI
 out_frames = cv2.VideoWriter(os.path.join(output_dir, "FasterRCNN_ResNet50_FPN_V2_Weights.avi"), fourcc, fps, frame_size, isColor=True)
 
 for idx, img in tqdm(enumerate(test_frames, start=1)):
-    image=Image.fromarray(img)
-    # Step 3: Apply inference preprocessing transforms
-    batch = [preprocess(image)]
+    with torch.no_grad():
+        image=Image.fromarray(img)
+        # Step 3: Apply inference preprocessing transforms
+        batch = [preprocess(image)]
 
-    # Step 4: Use the model and visualize the prediction
-    prediction = model(batch)[0]
-    labels = [weights.meta["categories"][i] for i in prediction["labels"]]
-    
-    # print(prediction)
-    # print(labels)
-    pred_boxes=[]
-    new_labels=[]
-    for i, pred in enumerate(prediction['boxes']):
-    
-        if labels[i] == 'car':
-            pred_boxes.append(np.array(pred.detach()))
-            new_labels.append(labels[i])
-    # labels = [weights.meta["categories"][i] for i in pred_boxes["labels"]]
-    # print(pred_boxes)
+        # Step 4: Use the model and visualize the prediction
+        prediction = model(batch)[0]
+        labels = [weights.meta["categories"][i] for i in prediction["labels"]]
+        
+        # print(prediction)
+        # print(labels)
+        pred_boxes=[]
+        new_labels=[]
+        for i, pred in enumerate(prediction['boxes']):
+        
+            if labels[i] == 'car':
+                pred_boxes.append(np.array(pred.detach()))
+                new_labels.append(labels[i])
+        # labels = [weights.meta["categories"][i] for i in pred_boxes["labels"]]
+        # print(pred_boxes)
 
-    gt_boxes = gt_dict.get(idx, [])
-    # print(gt_boxes)
+        gt_boxes = gt_dict.get(idx, [])
+        # print(gt_boxes)
 
-    # Store predictions and ground truth for later AP computation
-    all_pred_boxes.append(pred_boxes)
-    all_gt_boxes.append(gt_boxes)
+        # Store predictions and ground truth for later AP computation
+        all_pred_boxes.append(pred_boxes)
+        all_gt_boxes.append(gt_boxes)
 
-    # annotated_frame = draw_bounding_boxes(pil_to_tensor(img), boxes=torch.Tensor(pred_boxes),
-    #                         labels=new_labels,
-    #                         colors="red",
-    #                         width=4, font_size=30)
-    # annotated_frame = draw_bounding_boxes(annotated_frame, boxes=torch.Tensor(gt_boxes),
-    #                         labels=None,
-    #                         colors="green",
-    #                         width=4, font_size=30)
+        # annotated_frame = draw_bounding_boxes(pil_to_tensor(img), boxes=torch.Tensor(pred_boxes),
+        #                         labels=new_labels,
+        #                         colors="red",
+        #                         width=4, font_size=30)
+        # annotated_frame = draw_bounding_boxes(annotated_frame, boxes=torch.Tensor(gt_boxes),
+        #                         labels=None,
+        #                         colors="green",
+        #                         width=4, font_size=30)
 
-    # Draw predicted bounding boxes in green
-    for box in pred_boxes:
-        cv2.rectangle(img, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 255, 0), 2)  # Green
+        # Draw predicted bounding boxes in green
+        for box in pred_boxes:
+            cv2.rectangle(img, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 255, 0), 2)  # Green
 
-    # Draw ground truth bounding boxes in red
-    for gt_box in gt_boxes:
-        cv2.rectangle(img, (int(gt_box[0]), int(gt_box[1])), (int(gt_box[2]), int(gt_box[3])), (255, 0, 0),
-                      2)  # Red
-    
+        # Draw ground truth bounding boxes in red
+        for gt_box in gt_boxes:
+            cv2.rectangle(img, (int(gt_box[0]), int(gt_box[1])), (int(gt_box[2]), int(gt_box[3])), (255, 0, 0),
+                        2)  # Red
+        
 
-    # Display results
-    # cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-    out_frames.write(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        # Display results
+        # cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        out_frames.write(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
 
-    key = cv2.waitKey(30) & 0xFF
-    if key == 27:  # Press ESC to exit
-        break
-    # im = to_pil_image(box.detach())
-    # im.show()
+        key = cv2.waitKey(30) & 0xFF
+        if key == 27:  # Press ESC to exit
+            break
+        # im = to_pil_image(box.detach())
+        # im.show()
 
 
 # Compute mean Average Precision (mAP) for object detection
