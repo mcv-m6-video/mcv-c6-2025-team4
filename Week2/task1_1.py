@@ -32,7 +32,7 @@ total_frames = load_data.get_total_frames(video_path)
 
 # Use 25% of the video frames for training the background model
 training_end = int(total_frames * 0.25)
-training_frames = load_data.load_frames_list(video_path, start=0, end=training_end)
+# training_frames = load_data.load_frames_list(video_path, start=0, end=training_end)
 test_frames = load_data.load_frames_list(video_path, start=training_end, end=total_frames)
 
 # Load ground truth annotations from XML file
@@ -75,10 +75,11 @@ frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 frame_size = (frame_width, frame_height)
 
 # Inicializar VideoWriters para cada método
-fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec AVI
-out_frames = cv2.VideoWriter(os.path.join(output_dir, "FasterRCNN_ResNet50_FPN_V2_Weights.avi"), fourcc, fps, frame_size, isColor=False)
+fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec AVI 
+# cv2.VideoWriter_fourcc(*'DIVX')
+out_frames = cv2.VideoWriter(os.path.join(output_dir, "FasterRCNN_ResNet50_FPN_V2_Weights.avi"), fourcc, fps, frame_size, isColor=True)
 
-for idx, img in tqdm(enumerate(test_frames, start=training_end)):
+for idx, img in tqdm(enumerate(test_frames, start=1)):
     image=Image.fromarray(img)
     # Step 3: Apply inference preprocessing transforms
     batch = [preprocess(image)]
@@ -127,7 +128,7 @@ for idx, img in tqdm(enumerate(test_frames, start=training_end)):
 
     # Display results
     # cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-    out_frames.write(img)
+    out_frames.write(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
 
     key = cv2.waitKey(30) & 0xFF
