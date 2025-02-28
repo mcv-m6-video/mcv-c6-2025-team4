@@ -40,7 +40,7 @@ training_end = int(total_frames * 0.25)
 # test_frames = load_data.load_frames_list(video_path, start=training_end, end=total_frames)
 
 
-test_frames = load_data.load_frames_list(video_path, start=0, end=total_frames)
+test_frames = load_data.load_frames_list(video_path, start=0, end=100)
 
 # Load ground truth annotations from XML file
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
@@ -198,7 +198,7 @@ for m in models:
             
 
             # Display results
-            cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            # cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
             out_frames.write(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
 
@@ -214,4 +214,12 @@ for m in models:
     print(f"Video mAP (AP for class 'car'): {video_ap:.4f}")
     cap.release()
     out_frames.release()
+
+
+    with open("map_results.txt", "a") as f:
+        f.write(f"model={m}, mAP={video_ap}\n")
+
+
+    print('Saved video at '+str(os.path.join(output_dir, m+".avi")))
+
     cv2.destroyAllWindows()
