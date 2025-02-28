@@ -38,7 +38,7 @@ total_frames = load_data.get_total_frames(video_path)
 training_end = int(total_frames * 0.25)
 # training_frames = load_data.load_frames_list(video_path, start=0, end=training_end)
 test_frames = load_data.load_frames_list(video_path, start=training_end, end=total_frames)
-test_frames=torch.Tensor(test_frames).to(device) 
+# test_frames=torch.Tensor(test_frames) 
 # Load ground truth annotations from XML file
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
 
@@ -59,7 +59,8 @@ for item in gt_data:
 # Step 1: Initialize model with the best available weights
 weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
 model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=0.9)
-model.to(device) 
+model.to(device)
+next(model.parameters()).device
 model.eval()
 
 # Step 2: Initialize the inference transforms
@@ -88,7 +89,7 @@ for idx, img in tqdm(enumerate(test_frames, start=1)):
     with torch.no_grad():
         image=Image.fromarray(img)
         # Step 3: Apply inference preprocessing transforms
-        batch = [preprocess(image)]
+        batch = [preprocess(image).to(device)]
 
         # Step 4: Use the model and visualize the prediction
         prediction = model(batch)[0]
@@ -101,7 +102,7 @@ for idx, img in tqdm(enumerate(test_frames, start=1)):
         for i, pred in enumerate(prediction['boxes']):
         
             if labels[i] == 'car':
-                pred_boxes.append(np.array(pred.detach()))
+                pred_boxes.append(pred.detach().cpu().numpy())
                 new_labels.append(labels[i])
         # labels = [weights.meta["categories"][i] for i in pred_boxes["labels"]]
         # print(pred_boxes)
