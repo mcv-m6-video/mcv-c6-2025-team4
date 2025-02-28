@@ -35,17 +35,17 @@ def parse_annotations_xml(xml_path, isGT=False):
         # Iterate over each bounding box in the track
         for box in boxes:
             if label == 'car':
-                # Check if the car is parked (ignore parked vehicles)
-                parked = box['attribute']['#text'].lower() == 'true'
-            else:
-                parked = None
+                #     # Check if the car is parked (ignore parked vehicles)
+                #     parked = box['attribute']['#text'].lower() == 'true'
+                # else:
+                #     parked = None
 
-            # Store annotation data
-            gt = [int(box['@frame']), int(id), label,
-                  float(box['@xtl']), float(box['@ytl']),
-                  float(box['@xbr']), float(box['@ybr']),
-                  float(-1), parked]
-            gts.append(gt)
+                # Store annotation data
+                gt = [int(box['@frame']), int(id), label,
+                    float(box['@xtl']), float(box['@ytl']),
+                    float(box['@xbr']), float(box['@ybr']),
+                    float(-1)]
+                gts.append(gt)
 
     # # Filter out parked vehicles
     for gt in gts:
