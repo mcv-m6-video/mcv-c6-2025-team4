@@ -72,7 +72,7 @@ for m in models:
     if m=="FCOS_ResNet50_FPN_Weights":
         
         weights = FCOS_ResNet50_FPN_Weights.COCO_V1
-        model = fcos_resnet50_fpn(weights=weights, box_score_thresh=0.99)
+        model = fcos_resnet50_fpn(weights=weights, box_score_thresh=0.9)
 
     elif m=="FasterRCNN_MobileNet_V3_Large_320_FPN_Weights":
         weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.COCO_V1
@@ -80,31 +80,31 @@ for m in models:
 
     elif m=="FasterRCNN_MobileNet_V3_Large_FPN_Weights":
         weights = FasterRCNN_MobileNet_V3_Large_FPN_Weights.COCO_V1
-        model = fasterrcnn_mobilenet_v3_large_fpn(weights=weights, box_score_thresh=0.99)
+        model = fasterrcnn_mobilenet_v3_large_fpn(weights=weights, box_score_thresh=0.9)
 
     elif m=="FasterRCNN_ResNet50_FPN_V2_Weights":
         weights = FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1
-        model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=0.99)
+        model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=0.9)
 
     elif m=="FasterRCNN_ResNet50_FPN_Weights":
         weights = FasterRCNN_ResNet50_FPN_Weights.COCO_V1
-        model = fasterrcnn_resnet50_fpn(weights=weights, box_score_thresh=0.99)
+        model = fasterrcnn_resnet50_fpn(weights=weights, box_score_thresh=0.9)
 
     elif m=="RetinaNet_ResNet50_FPN_V2_Weights":
         weights = RetinaNet_ResNet50_FPN_V2_Weights.COCO_V1
-        model = retinanet_resnet50_fpn_v2(weights=weights, box_score_thresh=0.99)
+        model = retinanet_resnet50_fpn_v2(weights=weights, box_score_thresh=0.9)
 
     elif m=="RetinaNet_ResNet50_FPN_Weights":
         weights = RetinaNet_ResNet50_FPN_Weights.COCO_V1
-        model = retinanet_resnet50_fpn(weights=weights, box_score_thresh=0.99)
+        model = retinanet_resnet50_fpn(weights=weights, box_score_thresh=0.9)
 
     elif m=="SSD300_VGG16_Weights":
         weights = SSD300_VGG16_Weights.COCO_V1
-        model = ssd300_vgg16(weights=weights, box_score_thresh=0.99)
+        model = ssd300_vgg16(weights=weights, box_score_thresh=0.9)
 
     elif m=="SSDLite320_MobileNet_V3_Large_Weights":
         weights = SSDLite320_MobileNet_V3_Large_Weights.COCO_V1
-        model = ssdlite320_mobilenet_v3_large(weights=weights, box_score_thresh=0.99)
+        model = ssdlite320_mobilenet_v3_large(weights=weights, box_score_thresh=0.9)
 
     
     model.to(device)
@@ -206,7 +206,7 @@ for m in models:
 
         # Display results
         # cv2.imshow("Frame with Detections", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-        out_frames.write(cv2.cvtColor(np.array(box), cv2.COLOR_RGB2BGR))
+        out_frames.write(cv2.cvtColor(np.array(to_pil_image(box)), cv2.COLOR_RGB2BGR))
 
 
         key = cv2.waitKey(30) & 0xFF
