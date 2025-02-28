@@ -44,7 +44,6 @@ test_frames = load_data.load_frames_list(video_path, start=0, end=total_frames)
 
 # Load ground truth annotations from XML file
 gt_data = read_data.parse_annotations_xml(path_annotation, isGT=True)
-
 # # Organize ground truth data by frame number
 # gt_dict = {}
 # for item in gt_data:
@@ -142,7 +141,7 @@ for m in models:
 
     for idx, img in tqdm(enumerate(test_frames, start=1)):
         target_dict = {item["frame"]: item for item in gt_data}
-        gt_dict= target_dict.get(idx)
+        gt_dict= target_dict.get(idx-1)
         # print(gt_dict)
         image=Image.fromarray(img)
         # Step 3: Apply inference preprocessing transforms
@@ -151,7 +150,6 @@ for m in models:
         # Step 4: Use the model and visualize the prediction
         with torch.no_grad():
             prediction = model(batch)[0]
-
         labels = [weights.meta["categories"][i] for i in prediction["labels"]]
         # print(prediction)
         # print(labels)
@@ -184,6 +182,14 @@ for m in models:
             width=4,
             font_size=30,
         )
+
+
+        # labels=[]
+        # for i in gt_dict["labels"]:
+        #     if i==3:
+        #         labels.append('car')
+        #     elif i==2:
+        #         labels.append('bike')
 
         labels = [weights.meta["categories"][i] for i in gt_dict["labels"]]
         box = draw_bounding_boxes(
