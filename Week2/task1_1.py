@@ -40,7 +40,7 @@ training_end = int(total_frames * 0.25)
 # test_frames = load_data.load_frames_list(video_path, start=training_end, end=total_frames)
 
 
-test_frames = load_data.load_frames_list(video_path, start=0, end=100)
+test_frames = load_data.load_frames_list(video_path, start=0, end=training_end)
 
 # Load ground truth annotations from XML file
 gt_data, _ = read_data.parse_annotations_xml(path_annotation, isGT=True)
