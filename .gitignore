@@ -1,2 +1,11 @@
 /Week2/output_videos
 /Week2/src/__pycache__
+
+data/
+bgs*/
+model*/
+output_videos/
+subsense/
+tf_env/
+
+.idea/

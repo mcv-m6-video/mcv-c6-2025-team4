@@ -1,8 +1,7 @@
 import numpy as np
 import xmltodict
-import torch
 
-def parse_annotations_xml_old(xml_path, isGT=False):
+def parse_annotations_xml(xml_path, isGT=False):
     """
     Parses ground truth annotations from an XML file.
 
@@ -35,18 +34,18 @@ def parse_annotations_xml_old(xml_path, isGT=False):
 
         # Iterate over each bounding box in the track
         for box in boxes:
-            # if label == 'car':
+            if label == 'car':
                 #     # Check if the car is parked (ignore parked vehicles)
                 #     parked = box['attribute']['#text'].lower() == 'true'
                 # else:
                 #     parked = None
 
                 # Store annotation data
-            gt = [int(box['@frame']), int(id), label,
-                float(box['@xtl']), float(box['@ytl']),
-                float(box['@xbr']), float(box['@ybr']),
-                float(-1)]
-            gts.append(gt)
+                gt = [int(box['@frame']), int(id), label,
+                    float(box['@xtl']), float(box['@ytl']),
+                    float(box['@xbr']), float(box['@ybr']),
+                    float(-1)]
+                gts.append(gt)
 
     # # Filter out parked vehicles
     for gt in gts:
@@ -93,62 +92,6 @@ def parse_annotations_xml_old(xml_path, isGT=False):
 
     return gt_complete, sorted_frames
 
-
-def parse_annotations_xml(xml_path, isGT=False):
-    """
-    Parses ground truth annotations from an XML file and converts them to a target format.
-
-    Parameters:
-    - xml_path: str
-        Path to the XML file containing annotations.
-    - isGT: bool, optional
-        If True, includes an "already_detected" flag for ground truth objects.
-
-    Returns:
-    - target: list of dicts
-        List of dictionaries containing frame-wise bounding boxes formatted for PyTorch models.
-    """
-    with open(xml_path, 'r') as xml_file:
-        tracks = xmltodict.parse(xml_file.read())['annotations']['track']
-
-    annotations = {}
-    
-    for track in tracks:
-        obj_id = int(track['@id'])
-        label = track['@label']  # Assuming labels are categorical strings
-        # print(label)
-        if label=='car':
-            newlabel=3
-        elif label=='bike':
-            newlabel=2
-        else:
-            print(label)
-
-        boxes = track['box']
-
-        for box in boxes:
-            frame = int(box['@frame'])
-            xmin, ymin, xmax, ymax = map(float, [box['@xtl'], box['@ytl'], box['@xbr'], box['@ybr']])
-            
-            if frame not in annotations:
-                annotations[frame] = {'boxes': [], 'labels': [], 'iscrowd': [], 'area': []}
-            
-            annotations[frame]['boxes'].append([xmin, ymin, xmax, ymax])
-            annotations[frame]['labels'].append(newlabel) 
-            # annotations[frame]['iscrowd'].append(0)  # Default to not a crowd
-            # annotations[frame]['area'].append((xmax - xmin) * (ymax - ymin))
-    
-    target = []
-    for frame, data in annotations.items():
-        target.append({
-            'frame': frame,
-            'boxes': torch.tensor(data['boxes'], dtype=torch.float32),
-            'labels': torch.tensor(data['labels'], dtype=torch.int64)
-            # 'iscrowd': torch.tensor(data['iscrowd'], dtype=torch.uint8),
-            # 'area': torch.tensor(data['area'], dtype=torch.float32)
-        })
-
-    return target
 
 def parse_predictions(path, isGT=False):
     """
