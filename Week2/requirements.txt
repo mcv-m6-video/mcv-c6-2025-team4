@@ -7,3 +7,5 @@ matplotlib~=3.10.0
 seaborn~=0.13.2
 ultralytics~=8.3.81
 scikit-image
+filterpy
+lap

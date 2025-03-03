@@ -4,41 +4,63 @@ import tensorflow as tf
 import torch
 from torchvision import models, transforms
 from src import metrics
-from torchvision.models.detection import retinanet_resnet50_fpn, RetinaNet_ResNet50_FPN_Weights,retinanet_resnet50_fpn_v2, RetinaNet_ResNet50_FPN_V2_Weights,fasterrcnn_resnet50_fpn, FasterRCNN_ResNet50_FPN_Weights,fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights,fasterrcnn_mobilenet_v3_large_fpn, FasterRCNN_MobileNet_V3_Large_FPN_Weights,fasterrcnn_mobilenet_v3_large_320_fpn, FasterRCNN_MobileNet_V3_Large_320_FPN_Weights,fcos_resnet50_fpn, FCOS_ResNet50_FPN_Weights,ssd300_vgg16, SSD300_VGG16_Weights,ssdlite320_mobilenet_v3_large, SSDLite320_MobileNet_V3_Large_Weights
+from torchvision.models.detection import (
+    retinanet_resnet50_fpn, RetinaNet_ResNet50_FPN_Weights,
+    retinanet_resnet50_fpn_v2, RetinaNet_ResNet50_FPN_V2_Weights,
+    fasterrcnn_resnet50_fpn, FasterRCNN_ResNet50_FPN_Weights,
+    fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights,
+    fasterrcnn_mobilenet_v3_large_fpn, FasterRCNN_MobileNet_V3_Large_FPN_Weights,
+    fasterrcnn_mobilenet_v3_large_320_fpn, FasterRCNN_MobileNet_V3_Large_320_FPN_Weights,
+    fcos_resnet50_fpn, FCOS_ResNet50_FPN_Weights,
+    ssd300_vgg16, SSD300_VGG16_Weights,
+    ssdlite320_mobilenet_v3_large, SSDLite320_MobileNet_V3_Large_Weights
+)
+from tqdm import tqdm
+import json
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+next_id = 0
+
+# Función para guardar detecciones en JSON (conversión de ndarray a lista)
+def save_detections_to_json(detections, file_path):
+    with open(file_path, "w") as f:
+        json.dump({k: [box.tolist() for box in v] for k, v in detections.items()}, f)
+
+# Función para cargar detecciones desde JSON
+def load_detections_from_json(file_path):
+    try:
+        with open(file_path, "r") as f:
+            detections = json.load(f)
+        return {int(k): np.array(v) for k, v in detections.items()}
+    except FileNotFoundError:
+        return None
 
 # Función para hacer el seguimiento de objetos entre dos cuadros
-def track_objects(frame_n_boxes, frame_n1_boxes, threshold=0.4):
-    tracked_boxes = []
-    track_id = 1
-    frame_n_ids = {}
-    
-    # Asignar ID de seguimiento a los objetos en el primer cuadro
-    for i, box in enumerate(frame_n_boxes):
-        frame_n_ids[i] = track_id
-        track_id += 1
-
-    # Comparar las cajas en el siguiente cuadro
-    for box_n1 in frame_n1_boxes:
+def track_objects(boxes, frame_number):
+    global next_id
+    updated_objects = {}
+    for obj_id, (prev_box, last_seen) in tracked_objects.items():
+        if frame_number - last_seen > 5:  # Si el objeto desapareció por 5 frames, descartarlo
+            continue
+        
         best_iou = 0
         best_match = None
-        best_track_id = None
-
-        for i, box_n in enumerate(frame_n_boxes):  # Agregar índice 'i'
-            iou = metrics.compute_iou(box_n, box_n1)
-            if iou > best_iou:
-                best_iou = iou
-                best_match = box_n
-                best_track_id = frame_n_ids[i]
-
-        if best_iou >= threshold:
-            tracked_boxes.append((box_n1, best_track_id))
-        else:
-            tracked_boxes.append((box_n1, track_id))
-            track_id += 1
-
-    return tracked_boxes
+        for i, box in enumerate(boxes):
+            current_iou = metrics.compute_iou(prev_box, box)
+            if current_iou > best_iou:
+                best_iou = current_iou
+                best_match = (i, box)
+        
+        if best_iou > 0.3:  # Umbral para considerar el mismo objeto
+            updated_objects[obj_id] = (best_match[1], frame_number)
+            del boxes[best_match[0]]
+    
+    # Asignar nuevos IDs a objetos nuevos
+    for box in boxes:
+        updated_objects[next_id] = (box, frame_number)
+        next_id += 1
+    
+    return updated_objects
 
 # Función para realizar la detección de objetos dependiendo del modelo cargado
 def detect_objects(frame, model, framework='tensorflow'):
@@ -70,6 +92,7 @@ def detect_objects(frame, model, framework='tensorflow'):
             transforms.ToPILImage(),
             transforms.Resize((800, 800)),
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         input_frame = transform(frame).unsqueeze(0)  # Añadir batch dimension
         model.eval()  # Poner el modelo en modo evaluación
@@ -78,8 +101,23 @@ def detect_objects(frame, model, framework='tensorflow'):
         with torch.no_grad():
             predictions = model(input_frame)
         
-        # Obtener las cajas delimitadoras de las predicciones
+        # Obtener las cajas, etiquetas y puntuaciones de confianza
         boxes = predictions[0]['boxes'].cpu().numpy()
+        labels = predictions[0]['labels'].cpu().numpy()  # IDs de las clases
+        scores = predictions[0]['scores'].cpu().numpy()  # Confianza
+
+        # Filtrar solo los coches (COCO class ID 3)
+        car_indices = np.where(labels == 3)[0]  # Obtener índices de coches
+        boxes = boxes[car_indices]  # Filtrar solo las cajas de coches
+        scores = scores[car_indices]  # Filtrar puntuaciones (opcional)
+
+        # Ajustar las coordenadas de las cajas al tamaño original de la imagen
+        original_height, original_width = frame.shape[:2]
+        scale_x = original_width / 800
+        scale_y = original_height / 800
+        boxes[:, [0, 2]] *= scale_x
+        boxes[:, [1, 3]] *= scale_y
+
         return boxes
 
     elif framework == 'opencv':
@@ -110,8 +148,9 @@ def load_model(model_path, framework='tensorflow'):
         model = tf.saved_model.load(model_path)
         return model
     elif framework == 'torch':
-        model = torch.load(model_path)
-        model.eval()  # Poner el modelo en modo evaluación
+        model = fasterrcnn_resnet50_fpn(weights=None)  # No cargar pesos preentrenados de COCO
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+        model.eval()  # Poner en modo evaluación
         return model
     elif framework == 'opencv':
         net = cv2.dnn.readNetFromTensorflow(model_path)
@@ -129,9 +168,8 @@ def generate_color(track_id):
 video_path = "./data/AICity_data/train/S03/c010/vdo.avi"  # Ruta al video
 cap = cv2.VideoCapture(video_path)
 if not cap.isOpened():
-    print("Error: No se pudo abrir el video.")
+    print("Error: Video could not be opened")
     exit()
-
 
 # Obtener propiedades del video
 fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -139,59 +177,70 @@ frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 # Crear el objeto VideoWriter para guardar el video
-output_path = './output_videos/task2_1.mp4'  # Ruta de salida para el video
+output_path = './output_videos/task2_1b.mp4'  # Ruta de salida para el video
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec para guardar el video en formato .mp4
 out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
 # Cargar el modelo que se va a utilizar
-# model_path = 'path_to_your_model'  # Ruta al modelo
+model_path = './Week2/0_fold_fine_tuned_faster_rcnn_05.pth'  # Ruta al modelo
 framework = 'torch'  # Cambiar a 'torch' o 'opencv' según el modelo que uses
-# model = load_model(model_path, framework)
-weights = RetinaNet_ResNet50_FPN_V2_Weights.COCO_V1
-model = retinanet_resnet50_fpn_v2(weights=weights, box_score_thresh=0.9)
-model.to(device)
-next(model.parameters()).device
-model.eval()
+model = load_model(model_path, framework)
 
-# Leer el primer cuadro
-ret, frame_n = cap.read()
-frame_n_boxes = detect_objects(frame_n, model, framework)
+tracked_objects = {}
+frame_count = 0
 
-frame_n1_boxes = []
+frame_total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+sample_rate = 4
+selected_frames = range(0, frame_total, sample_rate)
 
-# Leer los cuadros sucesivos y hacer el seguimiento
-while True:
-    ret, frame_n1 = cap.read()
+detections_path = "./Week2/detections.json"
+saved_detections = load_detections_from_json(detections_path)
+if saved_detections:
+    print("Using saved detections")
+else:
+    print("Generating new detections")
+    saved_detections = {}
+
+for frame_idx in tqdm(selected_frames, desc="Processing video"):
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+    ret, frame = cap.read()
     if not ret:
         break
     
     # Detectar objetos en el cuadro N+1
-    frame_n1_boxes = detect_objects(frame_n1, model, framework)
+    if str(frame_idx) not in saved_detections:
+        boxes = detect_objects(frame, model, framework)
+        saved_detections[str(frame_idx)] = boxes
+    else:
+        boxes = saved_detections[str(frame_idx)]
+        
+    if frame_idx % 50 == 0:
+        save_detections_to_json(saved_detections, detections_path)
     
     # Realizar el seguimiento de objetos
-    tracked_objects = track_objects(frame_n_boxes, frame_n1_boxes, threshold=0.4)
+    tracked_objects = track_objects(list(boxes), frame_idx)
     
     # Dibujar las cajas de los objetos y los IDs en el cuadro
-    for box, track_id in tracked_objects:
+    for obj_id, (box, _) in tracked_objects.items():
         x1, y1, x2, y2 = map(int, box)
         
         # Generar un color único para cada track_id
-        color = generate_color(track_id)
+        color = generate_color(obj_id)
         
         # Dibujar el rectángulo con el color generado
         if x1 is None or y1 is None or x2 is None or y2 is None:
-            print(f"Error: Coordenadas no válidas ({x1}, {y1}, {x2}, {y2})")
+            print(f"Error: Not valid values ({x1}, {y1}, {x2}, {y2})")
         else:
-            cv2.rectangle(frame_n1, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+            cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
 
         # Colocar el texto con el track_id encima del rectángulo
-        cv2.putText(frame_n1, f"ID: {track_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        cv2.putText(frame, f"ID: {obj_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
     # Escribir el cuadro procesado en el archivo de salida
-    out.write(frame_n1)
+    out.write(frame)
     
     # Actualizar el cuadro anterior para la siguiente iteración
-    frame_n_boxes = frame_n1_boxes
+    frame_count += 1
 
 # Liberar recursos
 cap.release()

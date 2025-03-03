@@ -5,6 +5,7 @@ import torch
 from torchvision import models, transforms
 from sort import Sort
 from torchvision.models.detection import retinanet_resnet50_fpn, RetinaNet_ResNet50_FPN_Weights,retinanet_resnet50_fpn_v2, RetinaNet_ResNet50_FPN_V2_Weights,fasterrcnn_resnet50_fpn, FasterRCNN_ResNet50_FPN_Weights,fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights,fasterrcnn_mobilenet_v3_large_fpn, FasterRCNN_MobileNet_V3_Large_FPN_Weights,fasterrcnn_mobilenet_v3_large_320_fpn, FasterRCNN_MobileNet_V3_Large_320_FPN_Weights,fcos_resnet50_fpn, FCOS_ResNet50_FPN_Weights,ssd300_vgg16, SSD300_VGG16_Weights,ssdlite320_mobilenet_v3_large, SSDLite320_MobileNet_V3_Large_Weights
+from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -70,8 +71,9 @@ def load_model(model_path, framework='tensorflow'):
     if framework == 'tensorflow':
         return tf.saved_model.load(model_path)
     elif framework == 'torch':
-        model = torch.load(model_path)
-        model.eval()
+        model = fasterrcnn_resnet50_fpn(weights=None)  # No cargar pesos preentrenados de COCO
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+        model.eval()  # Poner en modo evaluación
         return model
     elif framework == 'opencv':
         return cv2.dnn.readNetFromTensorflow(model_path)
@@ -95,17 +97,19 @@ fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec para guardar el video en forma
 out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
 # Cargar el modelo que se va a utilizar
-# model_path = 'path_to_your_model'  # Ruta al modelo
+model_path = './Week2/0_fold_fine_tuned_faster_rcnn_05.pth'  # Ruta al modelo
 framework = 'torch'  # Cambiar a 'torch' o 'opencv' según el modelo que uses
-# model = load_model(model_path, framework)
-weights = RetinaNet_ResNet50_FPN_V2_Weights.COCO_V1
-model = retinanet_resnet50_fpn_v2(weights=weights, box_score_thresh=0.85)
-model.to(device)
-next(model.parameters()).device
-model.eval()
+model = load_model(model_path, framework)
+# weights = RetinaNet_ResNet50_FPN_V2_Weights.COCO_V1
+# model = retinanet_resnet50_fpn_v2(weights=weights, box_score_thresh=0.85)
+# model.to(device)
+# next(model.parameters()).device
+# model.eval()
 mot_tracker = Sort()
 
-while True:
+frame_total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+for frame_idx, _ in enumerate(tqdm(range(frame_total), desc="Processing video")):
     ret, frame = cap.read()
     if not ret:
         break
