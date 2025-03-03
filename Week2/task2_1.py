@@ -15,6 +15,7 @@ from torchvision.models.detection import (
     ssd300_vgg16, SSD300_VGG16_Weights,
     ssdlite320_mobilenet_v3_large, SSDLite320_MobileNet_V3_Large_Weights
 )
+import torchvision.ops as ops 
 from tqdm import tqdm
 import json
 
@@ -40,7 +41,7 @@ def track_objects(boxes, frame_number):
     global next_id
     updated_objects = {}
     for obj_id, (prev_box, last_seen) in tracked_objects.items():
-        if frame_number - last_seen > 5:  # Si el objeto desapareció por 5 frames, descartarlo
+        if frame_number - last_seen > 10:  # Si el objeto desapareció por 5 frames, descartarlo
             continue
         
         best_iou = 0
@@ -51,7 +52,7 @@ def track_objects(boxes, frame_number):
                 best_iou = current_iou
                 best_match = (i, box)
         
-        if best_iou > 0.3:  # Umbral para considerar el mismo objeto
+        if best_iou > 0.5:  # Umbral para considerar el mismo objeto
             updated_objects[obj_id] = (best_match[1], frame_number)
             del boxes[best_match[0]]
     
@@ -75,18 +76,8 @@ def detect_objects(frame, model, framework='tensorflow'):
     Returns:
     - boxes: Lista de cajas delimitadoras detectadas.
     """
-    if framework == 'tensorflow':
-        # Preprocesar la imagen para el modelo de TensorFlow
-        input_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convertir a RGB
-        input_frame = np.expand_dims(input_frame, axis=0)
-        input_frame = tf.image.resize(input_frame, (800, 800))  # Redimensionar si es necesario
-        
-        # Realizar la predicción
-        detections = model(input_frame)
-        boxes = detections['detection_boxes'].numpy()[0]
-        return boxes
 
-    elif framework == 'torch':
+    if framework == 'torch':
         # Preprocesar la imagen para el modelo de PyTorch
         transform = transforms.Compose([
             transforms.ToPILImage(),
@@ -101,20 +92,24 @@ def detect_objects(frame, model, framework='tensorflow'):
         with torch.no_grad():
             predictions = model(input_frame)
         
-        # Obtener las cajas, etiquetas y puntuaciones de confianza
+        # Obtener las cajas delimitadoras de las predicciones
         boxes = predictions[0]['boxes'].cpu().numpy()
-        labels = predictions[0]['labels'].cpu().numpy()  # IDs de las clases
-        scores = predictions[0]['scores'].cpu().numpy()  # Confianza
-
-        # Filtrar solo los coches (COCO class ID 3)
-        car_indices = np.where(labels == 3)[0]  # Obtener índices de coches
-        boxes = boxes[car_indices]  # Filtrar solo las cajas de coches
-        scores = scores[car_indices]  # Filtrar puntuaciones (opcional)
+        scores = predictions[0]['scores'].cpu().numpy()
+        labels = predictions[0]['labels'].cpu().numpy()
+        
+        car_indices = labels == 1  
+        boxes = boxes[car_indices]
+        scores = scores[car_indices]
+        
+        keep = ops.nms(torch.tensor(boxes), torch.tensor(scores), iou_threshold=0.3)
+        boxes = boxes[keep.numpy()]
 
         # Ajustar las coordenadas de las cajas al tamaño original de la imagen
         original_height, original_width = frame.shape[:2]
         scale_x = original_width / 800
         scale_y = original_height / 800
+
+        # Ajustar las cajas a las dimensiones originales
         boxes[:, [0, 2]] *= scale_x
         boxes[:, [1, 3]] *= scale_y
 
