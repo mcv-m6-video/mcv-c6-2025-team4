@@ -1,7 +1,0 @@
-opencv-python~=4.11.0.86
-numpy~=2.1.2
-xmltodict~=0.14.2
-imageio~=2.37.0
-tqdm~=4.67.1
-matplotlib~=3.10.0
-seaborn~=0.13.2
