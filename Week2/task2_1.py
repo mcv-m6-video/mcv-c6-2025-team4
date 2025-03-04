@@ -78,42 +78,58 @@ def detect_objects(frame, model, framework='tensorflow'):
     """
 
     if framework == 'torch':
-        # Preprocesar la imagen para el modelo de PyTorch
         transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((800, 800)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        input_frame = transform(frame).unsqueeze(0)  # Añadir batch dimension
-        model.eval()  # Poner el modelo en modo evaluación
 
-        # Realizar la predicción
+        input_frame = transform(frame).unsqueeze(0)
+        model.eval()
+
         with torch.no_grad():
             predictions = model(input_frame)
-        
-        # Obtener las cajas delimitadoras de las predicciones
+
         boxes = predictions[0]['boxes'].cpu().numpy()
         scores = predictions[0]['scores'].cpu().numpy()
         labels = predictions[0]['labels'].cpu().numpy()
-        
-        car_indices = labels == 1  
+
+        # print(f"Labels detectados: {set(labels)}")
+
+        # Filtrar solo coches (si la clase 1 es la de coches)
+        car_indices = labels == 1
         boxes = boxes[car_indices]
         scores = scores[car_indices]
-        
-        keep = ops.nms(torch.tensor(boxes), torch.tensor(scores), iou_threshold=0.3)
-        boxes = boxes[keep.numpy()]
 
-        # Ajustar las coordenadas de las cajas al tamaño original de la imagen
+        # Aplicar NMS para reducir solapamientos
+        keep = ops.nms(torch.tensor(boxes), torch.tensor(scores), iou_threshold=0.15)
+        boxes = boxes[keep.numpy()]
+        scores = scores[keep.numpy()]
+
+        # Filtrar detecciones demasiado cercanas
+        filtered_boxes = []
+        min_dist = 20  # Distancia mínima entre los centros de las cajas
+
+        for box in boxes:
+            x1, y1, x2, y2 = box
+            center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
+
+            if all(np.linalg.norm(np.array([center_x, center_y]) - np.array([(b[0]+b[2])/2, (b[1]+b[3])/2])) > min_dist for b in filtered_boxes):
+                filtered_boxes.append(box)
+
+        filtered_boxes = np.array(filtered_boxes)
+
+        # **Ajustar las coordenadas de las cajas al tamaño original de la imagen**
         original_height, original_width = frame.shape[:2]
         scale_x = original_width / 800
         scale_y = original_height / 800
 
-        # Ajustar las cajas a las dimensiones originales
-        boxes[:, [0, 2]] *= scale_x
-        boxes[:, [1, 3]] *= scale_y
+        if len(filtered_boxes) > 0:
+            filtered_boxes[:, [0, 2]] *= scale_x
+            filtered_boxes[:, [1, 3]] *= scale_y
 
-        return boxes
+        return filtered_boxes
 
     elif framework == 'opencv':
         # Preprocesar la imagen para el modelo Mask R-CNN de OpenCV
