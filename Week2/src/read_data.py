@@ -109,44 +109,51 @@ def parse_annotations_xml(xml_path, isGT=False):
         List of dictionaries containing frame-wise bounding boxes formatted for PyTorch models.
     """
     with open(xml_path, 'r') as xml_file:
-        tracks = xmltodict.parse(xml_file.read())['annotations']['track']
+        data = xmltodict.parse(xml_file.read())
+
+    tracks = data['annotations']['track']
+
+    # Ensure `tracks` is always a list
+    if isinstance(tracks, dict):
+        tracks = [tracks]
 
     annotations = {}
-    
+
     for track in tracks:
-        obj_id = int(track['@id'])
-        label = track['@label']  # Assuming labels are categorical strings
-        # print(label)
-        if label=='car':
-            newlabel=3
-        elif label=='bike':
-            newlabel=2
+        label = track['@label'].lower()  # Convert label to lowercase for consistency
+
+        if label == 'car':
+            new_label = 1
+        elif label == 'bike':
+            new_label = 2
         else:
-            print(label)
+            continue  # Ignore objects that are neither car nor bike
 
         boxes = track['box']
+
+        # Ensure `boxes` is always a list
+        if isinstance(boxes, dict):
+            boxes = [boxes]
 
         for box in boxes:
             frame = int(box['@frame'])
             xmin, ymin, xmax, ymax = map(float, [box['@xtl'], box['@ytl'], box['@xbr'], box['@ybr']])
-            
+
             if frame not in annotations:
-                annotations[frame] = {'boxes': [], 'labels': [], 'iscrowd': [], 'area': []}
-            
+                annotations[frame] = {'boxes': [], 'labels': []}
+
             annotations[frame]['boxes'].append([xmin, ymin, xmax, ymax])
-            annotations[frame]['labels'].append(newlabel) 
-            # annotations[frame]['iscrowd'].append(0)  # Default to not a crowd
-            # annotations[frame]['area'].append((xmax - xmin) * (ymax - ymin))
-    
-    target = []
-    for frame, data in annotations.items():
-        target.append({
+            annotations[frame]['labels'].append(new_label)
+
+    # Convert to PyTorch tensors
+    target = [
+        {
             'frame': frame,
             'boxes': torch.tensor(data['boxes'], dtype=torch.float32),
             'labels': torch.tensor(data['labels'], dtype=torch.int64)
-            # 'iscrowd': torch.tensor(data['iscrowd'], dtype=torch.uint8),
-            # 'area': torch.tensor(data['area'], dtype=torch.float32)
-        })
+        }
+        for frame, data in sorted(annotations.items())
+    ]
 
     return target
 
