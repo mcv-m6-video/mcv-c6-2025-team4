@@ -18,9 +18,32 @@ from torchvision.models.detection import (
 import torchvision.ops as ops 
 from tqdm import tqdm
 import json
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 next_id = 0
+
+def save_mot_format(tracked_objects, output_mot_path):
+    os.makedirs(os.path.dirname(output_mot_path), exist_ok=True)
+    with open(output_mot_path, "w") as f:
+        for frame_idx, objects in tracked_objects.items():
+            if isinstance(objects, dict):  
+                # Manejo original cuando objects es un diccionario
+                for obj_id, (box, _) in objects.items():
+                    x1, y1, x2, y2 = map(int, box)
+                    width, height = x2 - x1, y2 - y1
+                    f.write(f"{frame_idx}, {obj_id}, {x1}, {y1}, {width}, {height}, 1, 1, 1\n")
+
+            elif isinstance(objects, tuple) and len(objects) == 2:
+                # Nuevo manejo cuando objects es una tupla con (box, frame_number)
+                box, _ = objects  # Extraer la caja
+                x1, y1, x2, y2 = map(int, box)
+                width, height = x2 - x1, y2 - y1
+                obj_id = frame_idx  # Si no hay un ID de objeto, podemos usar el frame_idx como referencia
+                f.write(f"{frame_idx}, {obj_id}, {x1}, {y1}, {width}, {height}, 1, 1, 1\n")
+
+            else:
+                print(f"Warning: Unhandled data structure at frame {frame_idx}: {objects}")
 
 # Función para guardar detecciones en JSON (conversión de ndarray a lista)
 def save_detections_to_json(detections, file_path):
@@ -188,7 +211,7 @@ frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 # Crear el objeto VideoWriter para guardar el video
-output_path = './output_videos/task2_1b.mp4'  # Ruta de salida para el video
+output_path = './output_videos/task2_1rcnn.mp4'  # Ruta de salida para el video
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec para guardar el video en formato .mp4
 out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
@@ -257,3 +280,10 @@ for frame_idx in tqdm(selected_frames, desc="Processing video"):
 cap.release()
 out.release()
 cv2.destroyAllWindows()
+
+if not isinstance(tracked_objects, dict):
+    print("Error: tracked_objects is not a dictionary!", type(tracked_objects))
+else:
+    # Guardar formato MOTChallenge
+    output_mot_path = "TrackEval/trackers/tracker2_1/data/MOT17-train/seq1.txt"
+    save_mot_format(tracked_objects, output_mot_path)
