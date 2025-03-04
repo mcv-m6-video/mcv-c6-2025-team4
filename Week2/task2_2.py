@@ -183,6 +183,6 @@ if not isinstance(tracked_dict, dict):
     print("Error: tracked_objects is not a dictionary!", type(tracked_dict))
 else:
     # Guardar formato MOTChallenge
-    output_mot_path = "TrackEval/trackers/tracker2_z1/data/MOT17-train/seq1.txt"
+    output_mot_path = "TrackEval/trackers/tracker2_2/data/MOT17-train/seq1.txt"
     save_mot_format(tracked_dict, output_mot_path)
 
