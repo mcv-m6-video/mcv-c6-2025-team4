@@ -6,7 +6,7 @@ from PIL import Image
 from torchvision.models.detection import (
     fasterrcnn_resnet50_fpn, FasterRCNN_ResNet50_FPN_Weights, FasterRCNN_MobileNet_V3_Large_320_FPN_Weights, fasterrcnn_mobilenet_v3_large_320_fpn, fasterrcnn_mobilenet_v3_large_fpn, FasterRCNN_MobileNet_V3_Large_FPN_Weights,
     FasterRCNN_ResNet50_FPN_V2_Weights, fasterrcnn_resnet50_fpn_v2, RetinaNet_ResNet50_FPN_V2_Weights, retinanet_resnet50_fpn_v2, RetinaNet_ResNet50_FPN_Weights, retinanet_resnet50_fpn,
-    SSD300_VGG16_Weights, ssd300_vgg16, SSDLite320_MobileNet_V3_Large_Weights, ssdlite320_mobilenet_v3_large
+    SSD300_VGG16_Weights, ssd300_vgg16, SSDLite320_MobileNet_V3_Large_Weights, ssdlite320_mobilenet_v3_large, FCOS_ResNet50_FPN_Weights, fcos_resnet50_fpn
 )
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.transforms.functional import to_tensor
@@ -60,19 +60,19 @@ train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, collate_fn=
 test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False, collate_fn=lambda x: tuple(zip(*x)))
 
 # Load pre-trained Faster R-CNN model
-weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.DEFAULT
-model = fasterrcnn_mobilenet_v3_large_320_fpn(weights=weights)
-for param in model.backbone.parameters():
-    param.requires_grad = False
+weights = FCOS_ResNet50_FPN_Weights.DEFAULT
+model = fcos_resnet50_fpn(weights=weights)
+#for param in model.backbone.parameters():
+#    param.requires_grad = False
 
 # Get the number of input features for the classifier
-in_features = model.roi_heads.box_predictor.cls_score.in_features
+#in_features = model.roi_heads.box_predictor.cls_score.in_features
 
 # Define the number of classes (including background)
-num_classes = 3
+#num_classes = 3
 
 # Replace the pre-trained head with a new one
-model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+#model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 model.to(device)
 
 # Optimizer & learning rate scheduler
@@ -124,7 +124,7 @@ for epoch in range(num_epochs):
 
     if float(video_metrics["map_50"]) > mAP_max:
         mAP_max = float(video_metrics["map_50"])
-        torch.save(model.state_dict(), "fasterrcnn_320_mobilenet_head_05_og.pth")
+        torch.save(model.state_dict(), "fcos_resnet50_05_og.pth")
         print("Saved model at epoch {}".format(epoch + 1))
 
 print("Fine-tuning and evaluation complete!")

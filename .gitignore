@@ -1,2 +1,11 @@
 /Week2/output_videos
 /Week2/src/__pycache__
+TrackEval
+/data/
+/faster_rcnn_resnet50_05_og.pth
+/detections.json
+/Week2/MOTS-train.txt
+/Week2/MOTS-train-1.txt
+/Week2/detections.json
+/fcos_resnet50_05_og.pth
+/TrackEval/
