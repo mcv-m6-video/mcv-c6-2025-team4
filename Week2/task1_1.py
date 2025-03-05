@@ -75,7 +75,7 @@ for m in models:
 
     elif m=="FasterRCNN_MobileNet_V3_Large_320_FPN_Weights":
         weights = FasterRCNN_MobileNet_V3_Large_320_FPN_Weights.COCO_V1
-        model = fasterrcnn_mobilenet_v3_large_320_fpn(weights=weights, box_score_thresh=0.9)
+        model = fasterrcnn_mobilenet_v3_large_320_fpn(weights=weights, box_score_thresh=0.7)
 
     elif m=="FasterRCNN_MobileNet_V3_Large_FPN_Weights":
         weights = FasterRCNN_MobileNet_V3_Large_FPN_Weights.COCO_V1
@@ -151,8 +151,8 @@ for m in models:
         with torch.no_grad():
             prediction = model(batch)[0]
         labels = [weights.meta["categories"][i] for i in prediction["labels"]]
-        # print(prediction)
-        # print(labels)
+        print(prediction)
+        print(labels)
         # pred_boxes=[]
         # for i, pred in enumerate(prediction['boxes']):
         
@@ -223,7 +223,7 @@ for m in models:
 
 
     # Compute mean Average Precision (mAP) for object detection
-    # video_ap = metrics.compute_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
+    # video_ap = metrics.computte_video_average_precision(all_pred_boxes, all_gt_boxes, iou_threshold=0.5)
     all_pred_boxes = [{k: (v.to(device) if isinstance(v, torch.Tensor) else v) for k, v in pred.items()} for pred in all_pred_boxes]
     all_gt_boxes = [{k: (v.to(device) if isinstance(v, torch.Tensor) else v) for k, v in gt.items()} for gt in all_gt_boxes]
     metric = MeanAveragePrecision(iou_type="bbox",class_metrics=True)
