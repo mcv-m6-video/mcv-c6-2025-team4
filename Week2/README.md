@@ -42,6 +42,14 @@ For each task, this is the way of executing the files:
 ```bash
 python Week2/{task_file.py}
 ```
+Nevertheless, some tasks require additional files:
+
+### Task 2.1 and 2.2
+
+Require to have the .pth model saved and trained so as to use it in object tracking. You can solve it in two different ways:
+
+1. If you have not already done it, run **task 1.2** so as to achieve a saved pretrained model.
+2. If not, download out best pretrained model from here and save it inside the Week2 folder:
 
 
 
