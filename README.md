@@ -65,7 +65,7 @@ You can install all the required dependencies by using the `requirements.txt` fi
 2. Install the required dependencies using pip:
    ```bash
    pip install -r requirements.txt
-## Scripts Overview
+## Week1: Scripts overview
 
 ### `main.py`
 
@@ -113,42 +113,25 @@ This script contains helper functions used by both `main.py` and `main_adaptive.
 - **Parameter setting**
 - **Utility functions for background modeling**
 
-## Background Estimation Method
+## Week 2: Scripts Overview
 
-Both adaptive and non-adaptive models use a single Gaussian distribution to represent the background at each pixel. Here's how each approach works:
+### Usage
 
-- **Non-Adaptive Model**: This model uses a fixed Gaussian distribution for each pixel. The background model remains static throughout the video, calculated from an initial set of frames. This model does not update itself.
-
-- **Adaptive Model**: In contrast, the adaptive model updates the Gaussian parameters (mean and variance) dynamically. It tracks changes over time, allowing the model to adapt to moving objects or environmental changes, such as changes in lighting or shadows.
-
-In both cases, temporal median filtering is used to improve foreground detection and reduce noise in the video sequence.
-
-## Model Comparison
-
-Both the adaptive and non-adaptive models are evaluated based on their ability to separate background from foreground in the video footage. The comparison involves the following aspects:
-- **Foreground Detection**: How accurately the model identifies moving objects (e.g., vehicles).
-- **Adaptability**: The ability of the adaptive model to adjust to changes in the scene (compared to the fixed model).
-- **Real-Time Processing**: How well the models perform in real-time, which is crucial for traffic monitoring.
-
-Results will be compared against more advanced models such as YOLO, Mask-RCNN, and SSD to assess their performance in real-world applications.
-
-## Evaluation Metrics
-
-We evaluate the models using the following metrics:
-- **Precision**: The percentage of true positive foreground detections out of all predicted foreground pixels.
-- **Recall**: The percentage of true positive foreground detections out of all actual foreground pixels.
-- **IoU (Intersection over Union)**: Measures the overlap between predicted and ground truth bounding boxes for foreground objects.
-- **Average Precision (AP)**: A combined metric summarizing precision and recall over different IoU thresholds.
-
-Pixel-level metrics include:
-- **True Positive Rate (TPR)**: Accuracy of background and foreground classification at the pixel level.
-- **False Positive Rate (FPR)**: Rate at which background pixels are misclassified as foreground.
-
-## Usage
-
-### Running the Adaptive Model
-
-To run the adaptive background estimation model, execute the following command:
+All scripts are executed on the following way: 
 
 ```bash
-python main_adaptive.py
+   python Week2/task{task_first_number}_{task_second_number}.py
+```
+
+### Task 1.1 and Task 1.1 yolo
+
+Tests the pre-trained models on our target domain without further training. 
+
+### Task 1.2
+
+Fine-tunes the models described on task 1.1, and outputs their performance on mAP metrics for the test set. 75% of the data was used for testing. It also saves the best finetuned weights for the specified model.
+
+### Task 1.3
+
+Taking the fine-tuned model (.pth format), 
+
