@@ -35,5 +35,13 @@ To install the required dependencies of this project, execute the following comm
 ```bash
 pip install -r requirements.txt
 ```
+## Usages of Scripts
+
+For each task, this is the way of executing the files:
+
+```bash
+python Week2/{task_file.py}
+```
+
 
 
