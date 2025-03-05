@@ -120,7 +120,7 @@ This script contains helper functions used by both `main.py` and `main_adaptive.
 All scripts are executed on the following way: 
 
 ```bash
-   python Week2/task{task_first_number}_{task_second_number}.py
+python Week2/task{task_first_number}_{task_second_number}.py
 ```
 
 ### Task 1.1 and Task 1.1 yolo
