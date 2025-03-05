@@ -10,17 +10,16 @@ This week, we tried and fine-tuned some pre-trained models (Faster RCNN + ResNet
 
 ```bash
 |-- src/
-|  |-- load_data.py
-|  |-- read_data.py
-|  |-- compute_metrics.py
-|  |-- convert.py
-|  |-- hota.py
-|  |-- identity.py
-|  |-- metrics.py
-|  |-- plots.py
-|  |-- sort.py
+|  |-- load_data.py          # Functions to load video frames
+|  |-- read_data.py          # Functions to load annotations
+|  |-- compute_metrics.py    # Functions to compute mean average precision and other metrics
+|  |-- hota.py               # File with functions necessary to compute HOTA metric
+|  |-- identity.py           # File with functions necessary to compute IDENTITY metric
+|  |-- metrics.py            # File inherited from las week that computes metrics (as mAP)
+|  |-- plots.py              # File that contains ways of computing plots
+|  |-- sort.py               # Utilities used in object tracking
 |
-|-- task1_1.py
+|-- task1_1.py               # 
 |-- task1_1_yolo.py
 |-- task1_2.py
 |-- task1_3.py
