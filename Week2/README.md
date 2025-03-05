@@ -19,11 +19,21 @@ This week, we tried and fine-tuned some pre-trained models (Faster RCNN + ResNet
 |  |-- plots.py              # File that contains ways of computing plots
 |  |-- sort.py               # Utilities used in object tracking
 |
-|-- task1_1.py               # 
-|-- task1_1_yolo.py
-|-- task1_2.py
-|-- task1_3.py
-|-- task2_1.py
-|-- task2_2.py
-|-- task2_3.py
+|-- task1_1.py               # Object detection using multiple deep learning models
+|-- task1_1_yolo.py          # YOLO-based object detection and evaluation
+|-- task1_2.py               # Fine-tuning object detection models
+|-- task1_3.py               # K-fold and random evaluation of the fine-tuned models
+|-- task2_1.py               # Object tracking using maximal overlapping method
+|-- task2_2.py               # Object tracking using Kalman Filter
+|-- task2_3.py               # Identity and Hota metrics on the object tracking method
 ```
+
+## Dependencies
+
+To install the required dependencies of this project, execute the following command:
+
+```bash
+pip install -r requirements.txt
+```
+
+
