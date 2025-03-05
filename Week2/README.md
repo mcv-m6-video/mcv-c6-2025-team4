@@ -22,7 +22,8 @@ This week, we tried and fine-tuned some pre-trained models (Faster RCNN + ResNet
 |-- task1_1.py               # Object detection using multiple deep learning models
 |-- task1_1_yolo.py          # YOLO-based object detection and evaluation
 |-- task1_2.py               # Fine-tuning object detection models
-|-- task1_3.py               # K-fold and random evaluation of the fine-tuned models
+|-- task1_3.py               # K-fold strategy B and evaluation of the fine-tuned models
+|-- task1_3random.py         # K-fold strategy C (random) and evaluation of the fine-tuned models
 |-- task2_1.py               # Object tracking using maximal overlapping method
 |-- task2_2.py               # Object tracking using Kalman Filter
 |-- task2_3.py               # Identity and Hota metrics on the object tracking method
