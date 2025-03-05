@@ -49,9 +49,20 @@ Nevertheless, some tasks require additional files:
 Require to have the .pth model saved and trained so as to use it in object tracking. You can solve it in two different ways:
 
 1. If you have not already done it, run **task 1.2** so as to achieve a saved pretrained model.
-2. If not, download out best pretrained model from here and save it inside the Week2 folder:
+2. If not, download out best pretrained model from here and save it outside the Week2 folder:
+   https://drive.google.com/file/d/1DcAAeBvltv22vaUyItMqNepfH_bjTaho/view?usp=sharing
 
-https://drive.google.com/file/d/1DcAAeBvltv22vaUyItMqNepfH_bjTaho/view?usp=sharing 
+These two files will create two .txt files (MOTS-train-1.txt and MOTS-train.txt, respectively), which will be used in the following task. These files contain the predictions made in the object tracking, saved un the MOTS file format).
+
+### Task 2.3
+
+This task computes the HOTA and IDENTITY metrics for object tracking. Having the files saved earlier, we can compute them by changing the name of the file in the bottom of the script.
+
+You can also load these files from here and place them on the Week2 folder: 
+1. Maximal Overlap method (MOTS-train-1.txt): https://drive.google.com/file/d/1DWvDNhZhlaW-MzyYPWj3pgOcNepilGtC/view?usp=sharing
+2. Kalman Filters (MOTS-train.txt): https://drive.google.com/file/d/10WuN455wvJXIVOhIlwLmWR44C08F0uIP/view?usp=sharing
+
+
 
 
 
