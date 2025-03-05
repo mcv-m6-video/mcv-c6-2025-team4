@@ -8,3 +8,4 @@ TrackEval
 /Week2/MOTS-train-1.txt
 /Week2/detections.json
 /fcos_resnet50_05_og.pth
+/TrackEval/
