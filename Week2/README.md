@@ -35,6 +35,13 @@ To install the required dependencies of this project, execute the following comm
 ```bash
 pip install -r requirements.txt
 ```
+## Methodology
+
+This project implements:
+- **Object detection**: Uses models such as Faster-RCNN, RetineNet, SSD and YOLO for vehicle detection.
+- **Tracking**: Implements tracking using Maximal Overlap and Kalman Filters, after some preprocessing.
+- **Evaluation metrics**: Computes mean Average Precision (mAP) for object detection and ID metrics for tracking evaluation.
+
 ## Usages of Scripts
 
 For each task, this is the way of executing the files:
