@@ -44,7 +44,7 @@ class ObjectDetectionDataset(Dataset):
 # Load dataset
 total_frames = load_data.get_total_frames(video_path)
 k_folds=4
-kf = KFold(n_splits=k_folds, shuffle=False)
+kf = KFold(n_splits=k_folds, shuffle=True)
 
 gt_data = read_data.parse_annotations_xml(annot_file, isGT=True)
 gt_dict = {item["frame"]: item for item in gt_data}
@@ -52,13 +52,17 @@ dataset = ObjectDetectionDataset(gt_data, video_path)
 
 
 for fold, (test_idx, train_idx) in enumerate(kf.split(dataset)): #change test and train order because kfold assumes that the 25% corresponds to testing
-
+    
+    with open(str(fold)+"_fold_indices.txt", "a") as f:
+          f.write(str(train_idx))
+          
     train_loader = DataLoader(dataset, batch_size=4,collate_fn=lambda x: tuple(zip(*x)),sampler=torch.utils.data.SubsetRandomSampler(train_idx))
     test_loader = DataLoader(dataset, batch_size=4,collate_fn=lambda x: tuple(zip(*x)),sampler=torch.utils.data.SubsetRandomSampler(test_idx))
 
     # Load pre-trained Faster R-CNN model
     weights = FasterRCNN_ResNet50_FPN_Weights.COCO_V1
     model = fasterrcnn_resnet50_fpn(weights=weights)
+
     model.to(device)
 
     # Optimizer & loss function
@@ -104,7 +108,7 @@ for fold, (test_idx, train_idx) in enumerate(kf.split(dataset)): #change test an
         video_metrics = metric.compute()
         print(video_metrics)
 
-    torch.save(model.state_dict(), str(fold)+"_fold_fine_tuned_faster_rcnn_05.pth")
+    torch.save(model.state_dict(), str(fold)+"_fold_RANDOM_fine_tuned_faster_rcnn_05.pth")
 
     # Evaluation loop
     model.eval()
@@ -128,9 +132,9 @@ for fold, (test_idx, train_idx) in enumerate(kf.split(dataset)): #change test an
     video_metrics = metric.compute()
     print(video_metrics)
 
-    with open("Faster_RCNN_map_results.txt", "a") as f:
+    with open("RANDOM_Faster_R_CNN_map_results.txt", "a") as f:
         f.write(
-            f"Fine-tuned Faster R-CNN fold: {fold}, mAP: {video_metrics['map']}, mAP50: {video_metrics['map_50']}, mAP75: {video_metrics['map_75']}\n")
+            f"RANDOM Fine-tuned Faster R-CNN fold: {fold}, mAP: {video_metrics['map']}, mAP50: {video_metrics['map_50']}, mAP75: {video_metrics['map_75']}\n")
 
     print("Fine-tuning and evaluation complete!")
 
