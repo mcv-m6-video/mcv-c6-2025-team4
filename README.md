@@ -113,25 +113,5 @@ This script contains helper functions used by both `main.py` and `main_adaptive.
 - **Parameter setting**
 - **Utility functions for background modeling**
 
-## Week 2: Scripts Overview
 
-### Usage
-
-All scripts are executed on the following way: 
-
-```bash
-python Week2/task{task_first_number}_{task_second_number}.py
-```
-
-### Task 1.1 and Task 1.1 yolo
-
-Tests the pre-trained models on our target domain without further training. 
-
-### Task 1.2
-
-Fine-tunes the models described on task 1.1, and outputs their performance on mAP metrics for the test set. 75% of the data was used for testing. It also saves the best finetuned weights for the specified model.
-
-### Task 1.3
-
-Taking the fine-tuned model (.pth format), 
 
