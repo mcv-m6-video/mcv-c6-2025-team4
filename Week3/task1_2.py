@@ -168,6 +168,7 @@ if saved_detections:
     print("Using saved detections")
 else:
     print("Generating new detections")
+    detections_path = "./detections_new.json"
     saved_detections = {}
 
 # Diccionario para almacenar los resultados del seguimiento
