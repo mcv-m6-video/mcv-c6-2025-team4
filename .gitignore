@@ -15,3 +15,5 @@ bgs*/
 /venv/
 pyflow/
 RAFT/
+Mask*/
+*.pth
