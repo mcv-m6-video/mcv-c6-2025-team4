@@ -15,9 +15,10 @@ def load_detections_from_json(file_path):
     try:
         with open(file_path, "r") as f:
             detections = json.load(f)
-        return {int(k): np.array(v) for k, v in detections.items()}
+        return {str(k): np.array(v) for k, v in detections.items()}  # 🔴 Mantener claves como str
     except FileNotFoundError:
-        return None
+        return {}
+
 
 
 # Function to save detections in JSON format
@@ -134,7 +135,7 @@ def predict_positions_with_of(flow, boxes):
 
 
 # Configuración de video
-video_path = "vdo.avi"
+video_path = "./data/AICity_data/train/S03/c010/vdo.avi"
 cap = cv2.VideoCapture(video_path)
 if not cap.isOpened():
     print("Error: Unable to open video.")
@@ -145,12 +146,12 @@ frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 # Inicializar escritor de video
-output_path = 'task2_sort_of.mp4'
+output_path = 'task2_sort_of2.mp4'
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
 # Cargar el modelo de detección de objetos
-model_path = '0_fold_fine_tuned_faster_rcnn_05.pth'
+model_path = 'Week3/0_fold_fine_tuned_faster_rcnn_05.pth'
 model = load_model(model_path, 'torch')
 
 # Inicializar el algoritmo SORT (que ya tiene Kalman Filter)
@@ -162,7 +163,7 @@ sample_rate = 1
 selected_frames = range(0, frame_total, sample_rate)
 
 # Cargar o inicializar las detecciones
-detections_path = "./detections.json"
+detections_path = "./Week3/detections.json"
 saved_detections = load_detections_from_json(detections_path)
 if saved_detections:
     print("Using saved detections")
@@ -186,6 +187,7 @@ for frame_idx in tqdm(selected_frames, desc="Processing video"):
 
     # Detectar objetos en el frame
     if str(frame_idx) not in saved_detections:
+        detections_path = "./detections_new.json"
         detections = detect_objects(frame, model, 'torch')
         saved_detections[str(frame_idx)] = detections
         save_detections_to_json(saved_detections, detections_path)
@@ -221,7 +223,7 @@ for frame_idx in tqdm(selected_frames, desc="Processing video"):
     out.write(frame)
 
 # Guardar los resultados en formato MOTChallenge
-output_mot_path = "output_mot_format_of.txt"
+output_mot_path = "output_mot_format_of2.txt"
 save_mot_format(tracked_dict, output_mot_path)
 
 # Liberar recursos
