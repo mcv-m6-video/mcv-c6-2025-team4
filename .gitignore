@@ -17,3 +17,5 @@ pyflow/
 RAFT/
 Mask*/
 *.pth
+/Week1
+/Week2
