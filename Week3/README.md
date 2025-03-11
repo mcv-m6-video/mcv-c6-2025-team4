@@ -1,4 +1,4 @@
-# Week 3
+# - Week 3
 
 ## Overview
 This folder contains scripts and files related to Week 3 of the project, focusing on optical flow estimation and multi-target single-camera tracking.
@@ -7,6 +7,27 @@ This folder contains scripts and files related to Week 3 of the project, focusin
 - Estimate the optical flow of a video sequence.
 - Improve object tracking using optical flow.
 - Evaluate tracking results using AI City Challenge datasets.
+
+## Dataset: AI City Challenge
+The dataset used for this project comes from the AI City Challenge, which contains traffic surveillance videos captured from multiple cameras in an urban environment.
+
+### **Dataset Structure**
+- **`cam_framenum/`** → Contains TXT files (`S01.txt`, `S02.txt`, etc.) listing the number of frames per sequence.
+- **`cam_loc/`** → PNG images (`S01.png`, `S02.png`) showing the camera locations.
+- **`cam_timestamp/`** → TXT files (`S01.txt`, `S02.txt`) containing timestamps for each frame.
+- **`train/`** → The main folder containing video sequences and related annotations:
+  - **`S01/`, `S03/`, `S04/`** → Each represents a different sequence.
+  - Inside each sequence, multiple cameras are labeled (`c001/`, `c002/`, ...).
+  - Inside each camera folder:
+    - `det/` → Object detections from different models (Mask R-CNN, SSD512, YOLOv3).
+    - `gt/` → Ground truth vehicle annotations (`gt.txt`).
+    - `mtsc/` → Multi-target tracking results from different algorithms.
+    - `segm/` → Segmentation data (`segm_mask_rcnn.txt`).
+    - `calibration.txt` → Camera calibration information.
+    - `roi.jpg` → Region of Interest image showing where vehicles are detected.
+    - `vdo.avi` → Video file containing the recorded traffic scene.
+
+The dataset is used to evaluate vehicle tracking and detection algorithms. Our focus is on tracking vehicles within single-camera views.
 
 ## Folder Contents
 
@@ -47,5 +68,6 @@ This folder contains scripts and files related to Week 3 of the project, focusin
 - The dataset is from the AI City Challenge (sequences SEQ01, SEQ03, SEQ04).
 - Tracking results should be compared against ground truth annotations.
 - Optical flow techniques (RAFT, Farneback, PyFlow) impact tracking accuracy differently.
+
 
 
