@@ -2,10 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Datos
-methods = ["Farneback", "PyFlow", "RAFT", "DeepMind"]
-time_taken = [0.37, 15.93, 20.29, None]  # DeepMind no tiene tiempo especificado
-msen = [4.2130, 0.9364, 6.1995, 4.1212]
-pepn = [28.4367, 7.4293, 49.41, 35.3810]
+methods = ["Farneback", "PyFlow", "RAFT", "FlowFormer (kitti.pth)", "FlowFormer (sintel.pth)"]
+time_taken = [0.37, 15.93, 20.29, 0.55, 0.38]  # DeepMind no tiene tiempo especificado
+msen = [4.2130, 0.9364, 6.1995, 2.1554, 1.3410]
+pepn = [28.4367, 7.4293, 49.41, 20.7760, 11.4779]
 
 x = np.arange(len(methods))  # Posiciones en el eje x
 width = 0.3  # Ancho de las barras

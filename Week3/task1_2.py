@@ -135,7 +135,7 @@ def predict_positions_with_of(flow, boxes):
 
 
 # Configuración de video
-video_path = "./data/AICity_data/train/S03/c010/vdo.avi"
+video_path = "./Week3/data_2/train/S01/c005/vdo.avi"
 cap = cv2.VideoCapture(video_path)
 if not cap.isOpened():
     print("Error: Unable to open video.")
@@ -146,7 +146,7 @@ frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 # Inicializar escritor de video
-output_path = 'task2_sort_of2.mp4'
+output_path = 'trackingc005.mp4'
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
@@ -163,13 +163,13 @@ sample_rate = 1
 selected_frames = range(0, frame_total, sample_rate)
 
 # Cargar o inicializar las detecciones
-detections_path = "./Week3/detections.json"
+detections_path = "./Week3/detections_c005.json"
 saved_detections = load_detections_from_json(detections_path)
 if saved_detections:
     print("Using saved detections")
 else:
     print("Generating new detections")
-    detections_path = "./detections_new.json"
+    # detections_path = "./detections_new.json"
     saved_detections = {}
 
 # Diccionario para almacenar los resultados del seguimiento
@@ -187,7 +187,7 @@ for frame_idx in tqdm(selected_frames, desc="Processing video"):
 
     # Detectar objetos en el frame
     if str(frame_idx) not in saved_detections:
-        detections_path = "./detections_new.json"
+        # detections_path = "./detections_new.json"
         detections = detect_objects(frame, model, 'torch')
         saved_detections[str(frame_idx)] = detections
         save_detections_to_json(saved_detections, detections_path)
@@ -223,7 +223,7 @@ for frame_idx in tqdm(selected_frames, desc="Processing video"):
     out.write(frame)
 
 # Guardar los resultados en formato MOTChallenge
-output_mot_path = "output_mot_format_of2.txt"
+output_mot_path = "output_mot_format_c005.txt"
 save_mot_format(tracked_dict, output_mot_path)
 
 # Liberar recursos

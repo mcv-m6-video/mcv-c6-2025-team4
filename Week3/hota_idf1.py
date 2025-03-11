@@ -40,7 +40,7 @@ def parse_mots_txt(file_path):
     with open(file_path, "r") as f:
         for line in f:
             parts = line.strip().split(",")
-            print(parts)
+            # print(parts)
             if len(parts) < 6:
                 continue  # Skip invalid lines
 
@@ -108,7 +108,12 @@ def evaluate_tracking(gt_file, pred_file):
     """
     Evaluate tracking results using HOTA and ID metrics.
     """
-    gt_data = parse_xml_annotations(gt_file)
+    if gt_file.endswith('.xml'):
+        gt_data = parse_xml_annotations(gt_file)
+    elif gt_file.endswith('.txt'):
+        gt_data = parse_mots_txt(gt_file)
+    else:
+        raise ValueError("Unsupported ground truth file format. Must be .xml or .txt.")
     pred_data = parse_mots_txt(pred_file)
 
     idf1_scores = []
@@ -136,8 +141,8 @@ def evaluate_tracking(gt_file, pred_file):
 
 
 if __name__ == "__main__":
-    gt_file = "data/ai_challenge_s03_c010-full_annotation.xml"
-    pred_file = "Week3/output_mot_format_of.txt"
+    gt_file = "Week3/data_2/train/S01/c001/gt/gt.txt"
+    pred_file = "Week3/outputs_track/output_mot_format_c001.txt"
 
     evaluate_tracking(gt_file, pred_file)
 
