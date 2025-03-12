@@ -51,7 +51,7 @@ The dataset is used to evaluate vehicle tracking and detection algorithms. Our f
 - `FlowFormer_task1_2_noflow.py`: Impleemnt object tracking without using FlowFormer but with the good object detection model.
 - `FlowFormer_task1_2_good.py`: Implement object tracking using FlowFormer with the appropriate object detector.
 - `graphs1.py`: Generates graphs and visualizations of the tracking performance.
-- `challenge.py`: Computes HOTA and IDF1 metrics for tracking evaluation.
+- `computehota.py`: Computes HOTA and IDF1 metrics for tracking evaluation.
 
 ## How to Use
 1. **Run Optical Flow Computation**
