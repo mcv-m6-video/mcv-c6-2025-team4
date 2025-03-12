@@ -59,6 +59,10 @@ The dataset is used to evaluate vehicle tracking and detection algorithms. Our f
    - This generates optical flow outputs (`.npy`, `.png`).
 
 ### Note:
+To use PyFlow, it is recommended to have Linux for better compatibility. You need to download the PyFlow repository (https://github.com/pathak22/pyflow) and follow the installation and compilation steps provided
+
+To use RAFT you need to download RAFT repository (https://github.com/princeton-vl/RAFT)
+
 So as to use FlowFormer, you need to download this folder and paste it inside Week3 folder (FlowFormer repo with some minimal changes to work):
 https://drive.google.com/file/d/1ytkw4M521gLt1WPBWuh-iIqCtDS12Jaz/view?usp=sharing 
 
