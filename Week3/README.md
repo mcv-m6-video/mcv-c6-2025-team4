@@ -44,25 +44,34 @@ The dataset is used to evaluate vehicle tracking and detection algorithms. Our f
 - `farneback_task1_1.py`: Computes optical flow using the Farneback method (OpenCV).
 - `pyflow_task1_1.py`: Computes optical flow using PyFlow.
 - `raft_task1_1.py`: Computes optical flow using RAFT (Recurrent All-Pairs Field Transforms).
+- `flowformer_task1_1.py`: Computes optical flow using FlowFormer.
 
 #### **Tracking & Evaluation**
-- `task1_2.py`: Implements object tracking using optical flow results.
+- `FlowFormer_task1_2.py`: Implements object tracking using FlowFormer optical flow results.
+- `FlowFormer_task1_2_noflow.py`: Impleemnt object tracking without using FlowFormer but with the good object detection model.
+- `FlowFormer_task1_2_good.py`: Implement object tracking using FlowFormer with the appropriate object detector.
 - `graphs1.py`: Generates graphs and visualizations of the tracking performance.
-- `hota_idf1.py`: Computes HOTA and IDF1 metrics for tracking evaluation.
-- `output_mot_format_of.txt`: Stores tracking results in MOT format for further evaluation.
+- `challenge.py`: Computes HOTA and IDF1 metrics for tracking evaluation.
 
 ## How to Use
 1. **Run Optical Flow Computation**
-   - Choose an optical flow method and execute the corresponding script (e.g., `farneback_task1_1.py`).
+   - Choose an optical flow method and execute the corresponding script (e.g., `floawformer_task1_1.py`).
    - This generates optical flow outputs (`.npy`, `.png`).
 
+### Note:
+So as to use FlowFormer, you need to download this folder and paste it inside Week3 folder (FlowFormer repo with some minimal changes to work):
+https://drive.google.com/file/d/1ytkw4M521gLt1WPBWuh-iIqCtDS12Jaz/view?usp=sharing 
+
+Also, you will need to download the sinthel.pth model from here:
+https://drive.google.com/drive/folders/1K2dcWxaqOLiQ3PoqRdokrgWsGIf3yBA_?usp=drive_link 
+
 2. **Perform Object Tracking**
-   - Run `task1_2.py` to apply tracking using the computed optical flow.
+   - Run `FlowFormer_task1_2_good.py` to apply tracking using the computed optical flow.
    - The script updates `detections.json` with tracking results.
+   - Outputs a `.txt` and a `.mp4` with the results of the tracking.
 
 3. **Evaluate Tracking Performance**
-   - Run `hota_idf1.py` to compute HOTA/IDF1 metrics.
-   - Use `graphs1.py` to visualize results.
+   - Run `challenge.py` to compute HOTA/IDF1 metrics.
 
 ## Notes
 - The dataset is from the AI City Challenge (sequences SEQ01, SEQ03, SEQ04).
