@@ -122,9 +122,7 @@ def main():
         hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
         rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
         cv2.imwrite('outFlow_flowformer.png', rgb)
-        cv2.imshow("Optical Flow (FlowFormer)", rgb)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
+    torch.cuda.empty_cache()
