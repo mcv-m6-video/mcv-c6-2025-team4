@@ -19,3 +19,5 @@ Mask*/
 *.pth
 /Week1
 /Week2
+/Week4/output
+/Week4/__pycache__
