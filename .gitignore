@@ -21,3 +21,7 @@ Mask*/
 /Week2
 /Week4/output
 /Week4/__pycache__
+/Week4/final_tracks
+/Week4/FlowFormer
+*.txt
+*.mp4
