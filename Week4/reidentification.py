@@ -288,49 +288,51 @@ def match_across_cameras(world_positions, start_frames, threshold=2.0):
                 #     print(f"  {coord1} <--> {coord2} : {dist:.2f} meters")
                     # Assign global track IDs
                 for track1, track2, dist in matches:
-                    # print(dist)
+                    print(dist)
                     key1, key2 = (vid1, track1), (vid2, track2)
-                    # print(key1)
-                    # print(key2)
-                    # a
-                    if key1 not in track_mapping and key2 not in track_mapping:
-                        global_id = global_track_id
-                        global_track_id += 1
+                    print(key1)
+                    print(key2)
+                    a
+                    if key1 in track_mapping and key2 in track_mapping:
+                        # Merge track IDs if they belong to different global IDs
+                        global_id1, global_id2 = track_mapping[key1], track_mapping[key2]
+                        if global_id1 != global_id2:
+                            # Merge two global track IDs into one
+                            for k, v in track_mapping.items():
+                                if v == global_id2:
+                                    track_mapping[k] = global_id1
                     elif key1 in track_mapping:
                         global_id = track_mapping[key1]
                     elif key2 in track_mapping:
                         global_id = track_mapping[key2]
                     else:
-                        global_id1, global_id2 = track_mapping[key1], track_mapping[key2]
-                        global_id = min(global_id1, global_id2)
-                        
-                        for k, v in track_mapping.items():
-                            if v == max(global_id1, global_id2):
-                                track_mapping[k] = global_id
+                        global_id = global_track_id
+                        global_track_id += 1
 
+                    # Update track mappings properly
                     track_mapping[key1] = global_id
                     track_mapping[key2] = global_id
+
+                    # Track occurrences
                     track_occurrences.setdefault(global_id, set()).update([vid1, vid2])
+
                     matched_tracks.add(global_id)
 
             # Store matched objects for this camera
             for obj in info1:
-                key = (vid1, obj[0])
-                if key not in track_mapping:
-                    track_mapping[key] = global_track_id
-                    global_track_id += 1
-                
-                track_id = track_mapping[key]
-                global_tracks.setdefault(track_id, []).append((vid1, frame1, obj[1], obj[2], obj[3]))  # Store bbox
-                
-                if frame1 not in final_tracks_per_camera[vid1]:
-                    final_tracks_per_camera[vid1][frame1] = []
-                final_tracks_per_camera[vid1][frame1].append((track_id, obj[1], obj[2], obj[3]))
+                track_id = track_mapping.get((vid1, obj[0]), None)
+                if track_id:
+                    global_tracks.setdefault(track_id, []).append((vid1, frame1, obj[1], obj[2],obj[3],obj[4],obj[5],obj[6]))
+
+                    # Store in per-camera structure
+                    if frame1 not in final_tracks_per_camera[vid1]:
+                        final_tracks_per_camera[vid1][frame1] = []
+                    final_tracks_per_camera[vid1][frame1].append((track_id, obj[1], obj[2],obj[3],obj[4],obj[5],obj[6]))
 
     # Remove tracks that appear in fewer than 2 cameras
     final_tracks_per_camera = {
         vid: {
-            frame: [(tid, x, y, bbox) for tid, x, y, bbox in objects if len(track_occurrences[tid]) >= 2]
+            frame: [(tid,x_gps,y_gps, x, y,w,h) for tid, x_gps,y_gps,x, y,w,h in objects if len(track_occurrences[tid]) >= 2]
             for frame, objects in frames.items()
         }
         for vid, frames in final_tracks_per_camera.items()
