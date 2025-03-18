@@ -186,16 +186,16 @@ def haversine_distance_meters(coord1, coord2):
 
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    
+
     return R * c  # Distance in meters
 
-def find_potential_matches(coords1, coords2, track1s, track2s, threshold=30.0):
+def find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, threshold=30.0):
     """Find matching objects based on Euclidean distance in world coordinates."""
     matches = []
-    for (track1, coord1), (track2, coord2) in product(zip(track1s, coords1), zip(track2s, coords2)):
+    for (track1, coord1,box1), (track2, coord2,box2) in product(zip(track1s, coords1,bboxes1), zip(track2s, coords2,bboxes2)):
         dist = haversine_distance_meters(np.array(coord1),np.array(coord2))
         if dist <= threshold:
-            matches.append((track1, track2, dist))  # Store track IDs and distance
+            matches.append((track1, track2,box1,box2))  # Store track IDs and distance
     return matches
 
 
@@ -221,7 +221,7 @@ def match_across_cameras(world_positions, start_frames, threshold=2.0):
     track_mapping = {}  # Maps local track_id -> global track_id
     global_track_id = 1
     track_occurrences = {}
-    final_tracks_per_camera = {vid: {} for vid in world_positions}
+    final_tracks_per_camera = []
 
     # print(world_positions)
     # Iterate through all pairs of videos
@@ -256,122 +256,61 @@ def match_across_cameras(world_positions, start_frames, threshold=2.0):
                 # Extract track IDs, coordinates, and bounding boxes
                 track1s, coords1, bboxes1 = zip(*[(obj[0], [obj[1], obj[2]], [obj[3],obj[4],obj[5],obj[6]]) for obj in info1])
                 track2s, coords2, bboxes2 = zip(*[(obj[0], [obj[1], obj[2]], [obj[3],obj[4],obj[5],obj[6]]) for obj in info2])
-
-
-                # track1s=[]
-                # # x1s=[]
-                # coords1=[]
-                # for object in info1:
-                #     track1s.append(object[0])
-                #     coords1.append([object[1],object[2]])
-                
-                # track2s=[]
-                # # x2s=[]
-                # coords2=[]
-                # for object in info2:
-                #     track2s.append(object[0])
-                #     coords2.append([object[1],object[2]])
-
-                # print(coords1)
-                # print(coords2)
-
-                # Compute Euclidean distance in world coordinates
-                # dist = np.linalg.norm([x1s - x2s, y1s - y2s])
-                # Compute similarities
                 
                 # Find matches within 5 meters
-                matches = find_potential_matches(coords1, coords2, track1s, track2s, threshold=30.0)
+                matches = find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, threshold=30.0)
 
-                # Print matches
-                # print("\nPotential Matches (Same Car in Different Cameras, within 5 meters):")
-                # for coord1, coord2, dist in matches:
-                #     print(f"  {coord1} <--> {coord2} : {dist:.2f} meters")
-                    # Assign global track IDs
-                for track1, track2, dist in matches:
-                    print(dist)
-                    key1, key2 = (vid1, track1), (vid2, track2)
-                    print(key1)
-                    print(key2)
-                    a
-                    if key1 in track_mapping and key2 in track_mapping:
-                        # Merge track IDs if they belong to different global IDs
-                        global_id1, global_id2 = track_mapping[key1], track_mapping[key2]
-                        if global_id1 != global_id2:
-                            # Merge two global track IDs into one
-                            for k, v in track_mapping.items():
-                                if v == global_id2:
-                                    track_mapping[k] = global_id1
-                    elif key1 in track_mapping:
-                        global_id = track_mapping[key1]
-                    elif key2 in track_mapping:
-                        global_id = track_mapping[key2]
-                    else:
-                        global_id = global_track_id
-                        global_track_id += 1
 
-                    # Update track mappings properly
-                    track_mapping[key1] = global_id
-                    track_mapping[key2] = global_id
+                for track1, track2, bbox1,bbox2 in matches:
+                    key1, key2 = [vid1, track1,frame1,bbox1], [vid2, track2,frame2,bbox2]
 
-                    # Track occurrences
-                    track_occurrences.setdefault(global_id, set()).update([vid1, vid2])
+                    final_tracks_per_camera.append([key1,key2])
+    #                 if key1 in track_mapping and key2 in track_mapping:
+    #                     # Merge track IDs if they belong to different global IDs
+    #                     global_id1, global_id2 = track_mapping[key1], track_mapping[key2]
+    #                     if global_id1 != global_id2:
+    #                         # Merge two global track IDs into one
+    #                         for k, v in track_mapping.items():
+    #                             if v == global_id2:
+    #                                 track_mapping[k] = global_id1
+    #                 elif key1 in track_mapping:
+    #                     global_id = track_mapping[key1]
+    #                 elif key2 in track_mapping:
+    #                     global_id = track_mapping[key2]
+    #                 else:
+    #                     global_id = global_track_id
+    #                     global_track_id += 1
 
-                    matched_tracks.add(global_id)
+    #                 # Update track mappings properly
+    #                 track_mapping[key1] = global_id
+    #                 track_mapping[key2] = global_id
 
-            # Store matched objects for this camera
-            for obj in info1:
-                track_id = track_mapping.get((vid1, obj[0]), None)
-                if track_id:
-                    global_tracks.setdefault(track_id, []).append((vid1, frame1, obj[1], obj[2],obj[3],obj[4],obj[5],obj[6]))
+    #                 # Track occurrences
+    #                 track_occurrences.setdefault(global_id, set()).update([vid1, vid2])
 
-                    # Store in per-camera structure
-                    if frame1 not in final_tracks_per_camera[vid1]:
-                        final_tracks_per_camera[vid1][frame1] = []
-                    final_tracks_per_camera[vid1][frame1].append((track_id, obj[1], obj[2],obj[3],obj[4],obj[5],obj[6]))
+    #                 matched_tracks.add(global_id)
+           
+    #         # Store matched objects for this camera
+    #         for obj in info1:
+    #             track_id = track_mapping.get((vid1, obj[0]), None)
+    #             if track_id:
+    #                 global_tracks.setdefault(track_id, []).append((vid1, frame1, obj[1], obj[2],obj[3],obj[4],obj[5],obj[6]))
 
-    # Remove tracks that appear in fewer than 2 cameras
-    final_tracks_per_camera = {
-        vid: {
-            frame: [(tid,x_gps,y_gps, x, y,w,h) for tid, x_gps,y_gps,x, y,w,h in objects if len(track_occurrences[tid]) >= 2]
-            for frame, objects in frames.items()
-        }
-        for vid, frames in final_tracks_per_camera.items()
-    }
+    #                 # Store in per-camera structure
+    #                 if frame1 not in final_tracks_per_camera[vid1]:
+    #                     final_tracks_per_camera[vid1][frame1] = []
+    #                 final_tracks_per_camera[vid1][frame1].append((track_id, obj[1], obj[2],obj[3],obj[4],obj[5],obj[6]))
+    #     a
+    # # Remove tracks that appear in fewer than 2 cameras
+    # final_tracks_per_camera = {
+    #     vid: {
+    #         frame: [(tid,x_gps,y_gps, x, y,w,h) for tid, x_gps,y_gps,x, y,w,h in objects if len(track_occurrences[tid]) >= 2]
+    #         for frame, objects in frames.items()
+    #     }
+    #     for vid, frames in final_tracks_per_camera.items()
+    # }
 
     return final_tracks_per_camera
-                    
-
-    #                     # Assign a global ID if neither object has one
-                        # if track_id1 in track_mapping:
-    #                         global_id = track_mapping[track_id1]
-    #                     elif track_id2 in track_mapping:
-    #                         global_id = track_mapping[track_id2]
-    #                     else:
-    #                         global_id = global_track_id
-    #                         global_track_id += 1
-
-    #                     # Update mapping
-    #                     track_mapping[track_id1] = global_id
-    #                     track_mapping[track_id2] = global_id
-
-    #                     # Track occurrences of global ID across cameras
-    #                     if global_id not in track_occurrences:
-    #                         track_occurrences[global_id] = set()
-    #                     track_occurrences[global_id].update([vid1, vid2])
-
-    #                     matched = True
-
-    #         # If object was not matched, assign it a new global ID
-    #         if not matched and track_id1 not in track_mapping:
-    #             track_mapping[track_id1] = global_track_id
-    #             track_occurrences[global_track_id] = {vid1}
-    #             global_track_id += 1
-
-    # # Remove tracks that appear in fewer than 2 cameras
-    # valid_tracks = {tid for tid, cams in track_occurrences.items() if len(cams) >= 2}
-    # final_track_mapping = {tid: new_tid for tid, new_tid in track_mapping.items() if new_tid in valid_tracks}
-
-    # return final_track_mapping
 
 def get_color(track_id):
     """Generate a unique color for each track ID."""
@@ -431,19 +370,6 @@ def create_videos_with_tracks(final_tracks_per_camera, video_folder, output_fold
         print(f"Saved tracked video: {output_video_path}")
 
 
-def save_final_tracks(output_dir, detections, track_mapping):
-    """Save final tracks in the same format as predictions, but with updated track IDs."""
-    os.makedirs(output_dir, exist_ok=True)
-
-    for vid in detections:
-        file_path = os.path.join(output_dir, f"{vid}_final_tracks.txt")
-        with open(file_path, "w") as f:
-            for frame, track_id, x, y, w, h in detections[vid]:
-                
-                if track_id in track_mapping:
-                    global_id = track_mapping[track_id]
-                    f.write(f"{frame},{global_id},{x},{y},{w},{h}\n")
-        print(f"Saved: {file_path}")
 
 def save_tracks_to_files(final_tracks_per_camera, output_folder):
     """
@@ -460,9 +386,11 @@ def save_tracks_to_files(final_tracks_per_camera, output_folder):
         with open(output_file, "w") as f:
             for frame, objects in sorted(frames.items()):
                 for obj in objects:
-                    track_id, x_gps,y_gps,x, y ,w,h= obj
+                    track_id, x, y ,w,h= obj
                     f.write(f"{frame},{track_id},{x},{y},{w},{h}\n")  # Same format as input
         print(f"Saved: {output_file}")  # Log output file path
+
+
 
 seq='S01/'
 videos=['c001','c002','c003','c004','c005']
@@ -487,10 +415,48 @@ world_positions = get_world_coordinates(detections, homographies, start_frames,d
 
 
 # Match detections across cameras
-track_mapping = match_across_cameras(world_positions,start_frames)
-# print(track_mapping)
+matches = match_across_cameras(world_positions,start_frames)
+print(matches[0])
 
 # Save final tracks with updated track IDs in the original format
-save_tracks_to_files(track_mapping,output_dir)
-# generate_tracking_videos(video_dir, output_dir, detections, track_mapping, gt_dict)
-create_videos_with_tracks(track_mapping, video_dir, output_dir, gt_dict)
+# save_tracks_to_files(track_mapping,output_dir)
+# # generate_tracking_videos(video_dir, output_dir, detections, track_mapping, gt_dict)
+# create_videos_with_tracks(track_mapping, video_dir, output_dir, gt_dict)
+
+# Example usage:
+# matches = [('c005', 341, 2, [296, 222, 141, 103]), 
+#            ('c004', 238, 1, [1335, 380, 414, 210])]
+
+
+detections_reid=detections.copy()
+def update_track_id(data, old_id, new_id):
+    for frame, objects in data.items():
+        for obj in objects:
+            if obj[0] == old_id:
+                obj[0] = new_id
+    return data
+
+changed_ids={}
+new_id=1
+
+print(matches[0])
+for element in matches:
+    a=element[0]
+    b=element[1]
+    if a[0] not in changed_ids:
+        changed_ids[a[0]]=[]
+    if b[0] not in changed_ids:
+        changed_ids[b[0]]=[]
+
+    for i in a:
+        if a[1] not in changed_ids[a[0]] and b[1] not in changed_ids[b[0]] :
+            detections_reid[a[0]]=update_track_id(detections_reid[a[0]],a[1],new_id)
+            detections_reid[b[0]]=update_track_id(detections_reid[b[0]],b[1],new_id)
+           
+            changed_ids[a[0]].append(a[1])
+            changed_ids[b[0]].append(b[1])
+            print(changed_ids)
+            new_id=new_id+1
+    
+# print(detections_reid['c001'])
+save_tracks_to_files(detections_reid,output_dir)

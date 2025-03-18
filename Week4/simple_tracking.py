@@ -156,6 +156,34 @@ def get_color(track_id):
         track_colors[track_id] = color
     return track_colors[track_id]
 
+def in_roi(bbox, roi_mask, min_ratio=0.5):
+    """
+    Check if a bounding box has at least min_ratio overlap with the ROI mask.
+    bbox: [x, y, w, h]
+    roi_mask: Single-channel (grayscale) mask where 255 = ROI, 0 = outside.
+    min_ratio: Minimum fraction of bbox area that must be inside the ROI to keep it.
+    """
+    x, y, w, h = map(int, bbox)
+    x2, y2 = x + w, y + h
+
+    # Clamp coords to image boundaries
+    x = max(x, 0)
+    y = max(y, 0)
+    x2 = min(x2, roi_mask.shape[1] - 1)
+    y2 = min(y2, roi_mask.shape[0] - 1)
+
+    # If invalid region or no overlap
+    if x2 <= x or y2 <= y:
+        return False
+
+    # Extract the corresponding patch from the ROI
+    patch = roi_mask[y:y2, x:x2]
+    # Count how many pixels are non-zero (inside ROI)
+    inside = np.count_nonzero(patch)
+    total = patch.size
+    ratio = inside / float(total)
+    return ratio >= min_ratio
+
 
 def load_start_times(txt_file, fps=10):
     start_frames = {}
@@ -170,7 +198,7 @@ def load_start_times(txt_file, fps=10):
 
 
 seq='S01/'
-videos=['c001','c002','c003','c004','c005']
+videos=['c002']
 
 start_frames_dict = load_start_times("E:/aic19-track1-mtmc-train/cam_timestamp/"+seq.split('/')[0]+'.txt')
 
@@ -186,7 +214,8 @@ for vid in videos:
     #     exit()
 
     gt_boxes = load_ground_truth('E:/aic19-track1-mtmc-train/train/'+seq+vid+'/gt/gt.txt')
-
+    roi_mask = cv2.imread('E:/aic19-track1-mtmc-train/train/'+seq+vid+'/roi.jpg', cv2.IMREAD_GRAYSCALE)
+    # print(roi_mask)
     frame_path="E:/aic19-track1-mtmc-train/train/"+seq+vid+"/frames"
     frame=cv2.imread(frame_path+"/frame_000000.jpg")
     fps = 10
@@ -257,11 +286,18 @@ for vid in videos:
             # For now, we're directly using the boxes as predicted_boxes.
             predicted_boxes = []
             for box in boxes:
-                predicted_boxes.append(box)
+                if in_roi(box, roi_mask, min_ratio=0.5):
+                    predicted_boxes.append(box)
+
             predicted_boxes = np.array(predicted_boxes)
 
             # Update SORT tracker with predicted boxes
-            tracked_objects = mot_tracker.update(np.array([np.append(box, 1.0) for box in predicted_boxes]))
+            # print(np.shape(predicted_boxes))
+            if len(predicted_boxes) > 0:
+
+                tracked_objects = mot_tracker.update(np.array([np.append(box, 1.0) for box in predicted_boxes]))
+            else :
+                tracked_objects=[]
 
             frame_tracking = {}
             for obj in tracked_objects:
