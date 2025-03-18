@@ -189,11 +189,12 @@ def haversine_distance_meters(coord1, coord2):
 
     return R * c  # Distance in meters
 
-def find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, threshold=30.0):
+def find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, threshold=2.0):
     """Find matching objects based on Euclidean distance in world coordinates."""
     matches = []
     for (track1, coord1,box1), (track2, coord2,box2) in product(zip(track1s, coords1,bboxes1), zip(track2s, coords2,bboxes2)):
         dist = haversine_distance_meters(np.array(coord1),np.array(coord2))
+        
         if dist <= threshold:
             matches.append((track1, track2,box1,box2))  # Store track IDs and distance
     return matches
@@ -258,12 +259,13 @@ def match_across_cameras(world_positions, start_frames, threshold=2.0):
                 track2s, coords2, bboxes2 = zip(*[(obj[0], [obj[1], obj[2]], [obj[3],obj[4],obj[5],obj[6]]) for obj in info2])
                 
                 # Find matches within 5 meters
-                matches = find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, threshold=30.0)
+                matches = find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, threshold=threshold)
 
 
                 for track1, track2, bbox1,bbox2 in matches:
                     key1, key2 = [vid1, track1,frame1,bbox1], [vid2, track2,frame2,bbox2]
-
+                    print(key1)
+                    print(key2)
                     final_tracks_per_camera.append([key1,key2])
     #                 if key1 in track_mapping and key2 in track_mapping:
     #                     # Merge track IDs if they belong to different global IDs
@@ -384,7 +386,8 @@ def save_tracks_to_files(final_tracks_per_camera, output_folder):
         output_file = os.path.join(output_folder, f"{cam_id}_final_tracks.txt")
 
         with open(output_file, "w") as f:
-            for frame, objects in sorted(frames.items()):
+            print(final_tracks_per_camera[cam_id])
+            for frame, objects in sorted(final_tracks_per_camera[cam_id].items()):
                 for obj in objects:
                     track_id, x, y ,w,h= obj
                     f.write(f"{frame},{track_id},{x},{y},{w},{h}\n")  # Same format as input
@@ -392,8 +395,10 @@ def save_tracks_to_files(final_tracks_per_camera, output_folder):
 
 
 
-seq='S01/'
-videos=['c001','c002','c003','c004','c005']
+# seq='S01/'
+# videos=['c001','c002','c003','c004','c005']
+seq='S03/'
+videos=['c010','c011','c012','c013','c014','c015']
 output_dir = "./final_tracks/"
 video_dir = "E:/aic19-track1-mtmc-train/train/S01"
 start_frames = load_start_times("E:/aic19-track1-mtmc-train/cam_timestamp/"+seq.split('/')[0]+'.txt')
@@ -415,8 +420,8 @@ world_positions = get_world_coordinates(detections, homographies, start_frames,d
 
 
 # Match detections across cameras
-matches = match_across_cameras(world_positions,start_frames)
-print(matches[0])
+matches = match_across_cameras(world_positions,start_frames,20)
+
 
 # Save final tracks with updated track IDs in the original format
 # save_tracks_to_files(track_mapping,output_dir)
@@ -428,7 +433,6 @@ print(matches[0])
 #            ('c004', 238, 1, [1335, 380, 414, 210])]
 
 
-detections_reid=detections.copy()
 def update_track_id(data, old_id, new_id):
     for frame, objects in data.items():
         for obj in objects:
@@ -436,27 +440,89 @@ def update_track_id(data, old_id, new_id):
                 obj[0] = new_id
     return data
 
-changed_ids={}
-new_id=1
+# def filter_and_update_track_id(data, old_id, new_id):
+#     updated_data = {}
+#     for frame, objects in data.items():
+#         updated_objects = []
+#         for obj in objects:
+#             if obj[0] == old_id:
+#                 obj[0] = new_id
+#                 updated_objects.append(obj)
+#         if updated_objects:
+#             updated_data[frame] = updated_objects  # Only add the frame if it has been updated
+#     return updated_data
 
-print(matches[0])
-for element in matches:
-    a=element[0]
-    b=element[1]
-    if a[0] not in changed_ids:
-        changed_ids[a[0]]=[]
-    if b[0] not in changed_ids:
-        changed_ids[b[0]]=[]
+# changed_ids={}
+# new_id=1
+# detections_reid=detections.copy()
 
-    for i in a:
-        if a[1] not in changed_ids[a[0]] and b[1] not in changed_ids[b[0]] :
-            detections_reid[a[0]]=update_track_id(detections_reid[a[0]],a[1],new_id)
-            detections_reid[b[0]]=update_track_id(detections_reid[b[0]],b[1],new_id)
+# # print(matches[0])
+# for element in matches:
+#     a=element[0]
+#     b=element[1]
+#     if a[0] not in changed_ids:
+#         changed_ids[a[0]]=[]
+#     if b[0] not in changed_ids:
+#         changed_ids[b[0]]=[]
+
+#     for i in a:
+#         if a[1] not in changed_ids[a[0]] and b[1] not in changed_ids[b[0]] :
+#             detections_reid[a[0]]=filter_and_update_track_id(detections_reid[a[0]],a[1],new_id)
+#             detections_reid[b[0]]=filter_and_update_track_id(detections_reid[b[0]],b[1],new_id)
            
-            changed_ids[a[0]].append(a[1])
-            changed_ids[b[0]].append(b[1])
-            print(changed_ids)
-            new_id=new_id+1
+#             changed_ids[a[0]].append(a[1])
+#             changed_ids[b[0]].append(b[1])
+#             # print(changed_ids)
+#             new_id=new_id+1
     
+
+def filter_and_update_track_id(data, old_id, new_id):
+    """Creates a new dictionary with only the updated track IDs."""
+    updated_data = {}
+    for frame, objects in data.items():
+        updated_objects = [obj[:] for obj in objects if obj[0] == old_id]  # Copy matched objects
+        for obj in updated_objects:
+            obj[0] = new_id  # Update track_id
+        if updated_objects:
+            updated_data[frame] = updated_objects  # Store only updated detections
+    return updated_data
+
+changed_ids = {}
+new_id = 1
+detections_reid = {}  # New dictionary structured by video ID -> frames
+
+for element in matches:
+    a, b = element[0], element[1]  # (video_id, track_id)
+
+    if a[0] not in detections_reid:
+        detections_reid[a[0]] = {}
+    if b[0] not in detections_reid:
+        detections_reid[b[0]] = {}
+
+    # Initialize changed_ids tracking
+    if a[0] not in changed_ids:
+        changed_ids[a[0]] = []
+    if b[0] not in changed_ids:
+        changed_ids[b[0]] = []
+
+    # Track processed IDs within each video
+    if a[1] not in changed_ids[a[0]] and b[1] not in changed_ids[b[0]]:
+        updated_a = filter_and_update_track_id(detections[a[0]], a[1], new_id)
+        updated_b = filter_and_update_track_id(detections[b[0]], b[1], new_id)
+
+        # Merge updates into detections_reid (organized by video -> frame)
+        for frame, objs in updated_a.items():
+            detections_reid[a[0]].setdefault(frame, []).extend(objs)
+        for frame, objs in updated_b.items():
+            detections_reid[b[0]].setdefault(frame, []).extend(objs)
+
+        # Mark IDs as processed
+        changed_ids[a[0]].append(a[1])
+        changed_ids[b[0]].append(b[1])
+
+        new_id += 1  # Increment new track_id
+
+print(detections_reid['c015'])
+
 # print(detections_reid['c001'])
 save_tracks_to_files(detections_reid,output_dir)
