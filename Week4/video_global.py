@@ -38,12 +38,12 @@ def get_color(track_id):
 seq='S03/'
 vid='c015'
 gt_boxes = load_ground_truth('E:/aic19-track1-mtmc-train/train/'+seq+vid+'/gt/gt.txt')
-# pred_boxes=load_predictions("E:/aic19-track1-mtmc-train/train/"+seq+vid+"/pred/predictions.txt")
-pred_boxes=load_predictions("C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+"_final_tracks.txt")
+pred_boxes=load_predictions("E:/aic19-track1-mtmc-train/train/"+seq+vid+"/pred/predictions.txt")
+# pred_boxes=load_predictions("C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+"_final_tracks.txt")
 
 frame_path="E:/aic19-track1-mtmc-train/train/"+seq+vid+"/frames"
 frame=cv2.imread(frame_path+"/frame_000000.jpg")
-fps = 10
+fps = 8
 frame_width = int(np.shape(frame)[1])
 frame_height = int(np.shape(frame)[0])
 

@@ -24,7 +24,10 @@ def load_start_times(txt_file, fps=10):
             parts = line.strip().split()
             if len(parts) == 2:
                 video_id, time_seconds = parts[0], float(parts[1])
+                if video_id=='c015':
+                    fps=8
                 start_frames[video_id] = int(time_seconds * fps)  # Convert time to frames
+    print(start_frames)
     return start_frames
 
 def align_frame(vid, frame, start_frames):
@@ -150,11 +153,29 @@ def get_world_coordinates(detections, homographies, start_frames,distortions):
             world_positions[vid]=detect_dict 
     return world_positions
 
-def find_corresponding_frame(vid1,vid2,frame1,start_frames):
-    f1=start_frames[vid1]
-    f2=start_frames[vid2]   
-    dif=f1-f2
-    return frame1-dif
+fps={
+    'c010':10,
+    'c011':10,
+    'c012':10,
+    'c013':10,
+    'c014':10,
+    'c015':8
+}
+def find_corresponding_frame(vid1,vid2,frame1,start_frames,fps=None):
+    if fps is not None:#vid1=='c015' or vid2=='c015':
+
+        f1 = start_frames[vid1]
+        f2 = start_frames[vid2]
+        time_elapsed = (frame1 - f1) / fps[vid1]  # Convert frames to time
+        frame2 = f2 + time_elapsed * fps[vid2]  # Convert time back to frames in vid2
+    else:
+        f1=start_frames[vid1]
+        f2=start_frames[vid2]   
+        dif=f1-f2
+        return frame1-dif
+    return round(frame2)
+
+
 
 def find_order(start_frames):
     new_order=dict(sorted(start_frames.items(), key=lambda item: item[1],reverse=True))
@@ -214,7 +235,8 @@ def compare_lists(list1, list2, metric='haversine'):
 
     return distances
 
-def match_across_cameras(world_positions, start_frames, threshold=2.0):
+
+def match_across_cameras(world_positions, start_frames, threshold=2.0,fps=None):
     """
     Match objects across cameras using aligned frames and world coordinates.
     Uses the start times to align frames across cameras.
@@ -232,7 +254,7 @@ def match_across_cameras(world_positions, start_frames, threshold=2.0):
                 if vid1 == vid2:
                     continue  # Skip same video comparison
 
-                frame2=find_corresponding_frame(vid1,vid2,frame1,start_frames)
+                frame2=find_corresponding_frame(vid1,vid2,frame1,start_frames,fps)
 
                 if frame2<0 or frame2 not in world_positions[vid2].keys():
                     continue
@@ -340,6 +362,15 @@ def save_tracks_to_files(final_tracks_per_camera, output_folder):
 # videos=['c001','c002','c003','c004','c005']
 seq='S03/'
 videos=['c010','c011','c012','c013','c014','c015']
+
+fps={
+    'c010':10,
+    'c011':10,
+    'c012':10,
+    'c013':10,
+    'c014':10,
+    'c015':8
+}
 output_dir = "./final_tracks/"
 video_dir = "E:/aic19-track1-mtmc-train/train/S01"
 start_frames = load_start_times("E:/aic19-track1-mtmc-train/cam_timestamp/"+seq.split('/')[0]+'.txt')
@@ -354,7 +385,7 @@ max_frame=get_max_frame(gt_dict)
 world_positions = get_world_coordinates(detections, homographies, start_frames,distortions)
 
 # Match detections across cameras
-matches = match_across_cameras(world_positions,start_frames,40)
+matches = match_across_cameras(world_positions,start_frames,30,fps)
 
 
 def update_track_id(data, old_id, new_id):
