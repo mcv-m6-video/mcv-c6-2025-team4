@@ -197,12 +197,12 @@ def load_start_times(txt_file, fps=10):
 
 
 
-seq='S01/'
-videos=['c002']
+seq='S04/'
+videos=['c016','c017']
 
 start_frames_dict = load_start_times("E:/aic19-track1-mtmc-train/cam_timestamp/"+seq.split('/')[0]+'.txt')
 
-
+mot_tracker=Sort()
 for vid in videos:
 
     # -------------------------------
@@ -228,6 +228,7 @@ for vid in videos:
     out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
     # Inicializar el algoritmo SORT (ya implementado con Kalman Filter)
+    del mot_tracker
     mot_tracker = Sort()
 
     frame_total = int(len(os.listdir(frame_path)))
