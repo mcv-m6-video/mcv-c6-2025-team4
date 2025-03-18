@@ -9,14 +9,14 @@ from tqdm import tqdm
 # --------------------------
 # 1. Set up the vehicle detector using Detectron2
 # --------------------------
-sys.path.append("/home/toukapy/Dokumentuak/Master CV/C6/detectron2")
+sys.path.append("/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/detectron2")
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
 
 d2_cfg = get_cfg()
 d2_cfg.merge_from_file(
-    "/home/toukapy/Dokumentuak/Master CV/C6/detectron2/configs/COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
+    "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/detectron2/configs/COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
 d2_cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # Assume one class: vehicle
 d2_cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5
 d2_cfg.MODEL.WEIGHTS = "Week4/model_final.pth"  # Update with your Detectron2 weights path
@@ -157,8 +157,8 @@ def get_color(track_id):
 # 8. Main tracking loop with ROI filtering
 # --------------------------
 if __name__ == "__main__":
-    video_path = "/home/toukapy/Dokumentuak/Master CV/C6/data/aic19-track1-mtmc-train/train/S01/c002/vdo.avi"
-    roi_path = "/home/toukapy/Dokumentuak/Master CV/C6/data/aic19-track1-mtmc-train/train/S01/c002/roi.jpg"
+    video_path = "/home/toukapy/Dokumentuak/Master CV/C6/data/aic19-track1-mtmc-train/train/S04/c016/vdo.avi"
+    roi_path = "/home/toukapy/Dokumentuak/Master CV/C6/data/aic19-track1-mtmc-train/train/S04/c016/roi.jpg"
 
     # Load ROI as a single-channel mask (0=outside, 255=inside)
     roi_mask = cv2.imread(roi_path, cv2.IMREAD_GRAYSCALE)
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     # Folder to store processed frames
-    output_folder = "Week4/s01_c002_roi_notcustom"
+    output_folder = "Week4/s04_c016_roi"
     os.makedirs(output_folder, exist_ok=True)
 
     # Dictionary to store tracking results for MOT
@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
         # -----------------------------
         # Update DeepSORT tracker
-        tracks = tracker.update_tracks(filtered_detections, frame=frame)
+        tracks = tracker.update_tracks(filtered_detections, embeds=embeds)
         frame_tracking = {}
         for track in tracks:
             if not track.is_confirmed():
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     print(f"Se han guardado {len(saved_frames)} frames en la carpeta '{output_folder}'.")
 
     # Save tracking results in MOT format
-    mot_output_path = "Week4/s01_c002_roi_notcustom.txt"
+    mot_output_path = "Week4/s04_c016_roi.txt"
     save_mot_format(tracked_dict, mot_output_path)
     print("Tracking completado con filtrado por ROI. Frames y resultados MOT guardados.")
 

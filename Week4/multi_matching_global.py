@@ -125,12 +125,12 @@ def associate_tracklets(tracklets_cam1, tracklets_cam2, H1, H2, ref_gps, min_tim
 # Proceso Global Multi-Cámara con Corrección de ID
 # =============================================================================
 if __name__ == "__main__":
-    cam_ids = ["c001", "c002", "c003", "c004", "c005"]
-    tracking_files = {cam: f"/home/toukapy/Dokumentuak/Master CV/C6/Week4/{cam}.txt" for cam in cam_ids}
-    calib_files = {cam: f"/home/toukapy/Dokumentuak/Master CV/C6/data/aic19-track1-mtmc-train/train/S01/{cam}/calibration.txt" for cam in cam_ids}
-    timestamp_file = "/home/toukapy/Dokumentuak/Master CV/C6/data/aic19-track1-mtmc-train/cam_timestamp/S01.txt"
+    cam_ids = ["c010", "c011", "c012", "c013", "c014", "c015"]
+    tracking_files = {cam: f"/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/results/s03_{cam}_roi.txt" for cam in cam_ids}
+    calib_files = {cam: f"/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/S03/{cam}/calibration.txt" for cam in cam_ids}
+    timestamp_file = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/cam_timestamp/S03.txt"
     fps = 10
-    ref_gps = [42.525678, -90.723601]
+    ref_gps = [42.498780, -90.686393]
 
     timestamps = load_timestamps(timestamp_file)
     H_cam = {cam: load_calibration(calib_files[cam]) for cam in cam_ids}
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     sorted_cameras = sorted(cam_start_times.keys(), key=lambda cam: cam_start_times[cam])
 
     id_offset = {}
-    offset_value = 1
+    offset_value = 241
     for cam in sorted_cameras:
         id_offset[cam] = offset_value
         max_local_id = max(tracklets[cam].keys()) if tracklets[cam] else 0
@@ -172,7 +172,7 @@ if __name__ == "__main__":
             local_tid = int(local_tid)
             global_id_mapping[item] = id_offset[cam_id] + local_tid - 1
 
-    out_dir = "Global_Tracking"
+    out_dir = "Global_Tracking_Miren_S03"
     os.makedirs(out_dir, exist_ok=True)
     for cam in cam_ids:
         input_file, output_file = tracking_files[cam], os.path.join(out_dir, f"{cam}_global.txt")

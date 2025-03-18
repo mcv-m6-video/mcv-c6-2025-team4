@@ -3,12 +3,12 @@ import os
 import glob
 
 # Configuraciones
-frames_folder = "Week4/c001_roi_global"  # Carpeta donde se encuentran los frames
-output_video = "Week4/video_final_ROI_c001_global.mp4"  # Nombre del video de salida
+frames_folder = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/video_frames/s03_c010_global"  # Carpeta donde se encuentran los frames
+output_video = "Week4/results/s03_c010_global.mp4"  # Nombre del video de salida
 fps = 5                        # Fotogramas por segundo deseados para el video
 
 # Obtener la lista de archivos de imagen (se asume extensión .jpg)
-frame_paths = sorted(glob.glob(os.path.join(frames_folder, "*.jpg")))
+frame_paths = sorted(glob.glob(os.path.join(frames_folder, "*.png")))
 if not frame_paths:
     print("No se encontraron frames en la carpeta especificada.")
     exit(1)
