@@ -16,19 +16,19 @@ This project focuses on **video surveillance for road traffic monitoring**, usin
 - Performance was best on sequences **S01 and S04**, as the object detector was trained on those.
 
 ### 2. Object Tracking (Single Camera)
-- **Simple tracking methods** were initially used.
-- Further improvement was attempted with **DeepSORT tracking**.
+- **Simple tracking methods** were initially used. (simple_tracking.py)
+- Further improvement was attempted with **DeepSORT tracking**. (deep_sort_multi_track_ROI_crop.py)
 - The model struggled with **S03** due to limited training data on that sequence.
 
 ### 3. Multi-Camera Tracking
-- **Projection to GPS coordinates** was applied to match vehicle locations across cameras.
+- **Projection to GPS coordinates** was applied to match vehicle locations across cameras. (reidentification.py)
 - **Challenges:**
   - IDF1 scores were lower when using multi-camera tracking.
   - Alignment issues caused incorrect associations.
   - Some vehicles were not detected due to failures in single-camera tracking.
 
 ### 4. Enhancing Multi-Camera Tracking
-- **FastReID** was used for vehicle re-identification.
+- **FastReID** was used for vehicle re-identification. (reidentification_2.py)
 - Added **deep appearance embeddings** to distinguish vehicles based on visual cues.
 - **Challenges:**
   - Some parked cars were wrongly detected and assigned incorrect IDs across cameras.
