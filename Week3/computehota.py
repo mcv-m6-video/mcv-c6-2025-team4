@@ -4,13 +4,14 @@ from scipy.optimize import linear_sum_assignment
 
 all_hota=[]
 all_idf=[]
-# for vid in ['c013','c014','c015']:
-for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028']:
-
+# for vid in ['c011','c012','c013','c010','c014','c015']:
+# for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028']:
+seq='S03/'
+for vid in ['c010','c011','c012','c013','c014', 'c015']:
     # Paths to input files
-    PREDICTIONS_FILE = "C:/Users/User/Documents/MASTER/c6/S04_"+vid+"_output_mot_format_detectron_good_10k.txt"  # Replace with actual path
-    GROUND_TRUTH_FILE = "C:/Users/User/Downloads/data/train/S04/"+vid+"/gt/gt.txt"
-    OUTPUT_DIR = "C:/Users/User/Downloads/data/train/S04/"+vid+"/pred/"
+    PREDICTIONS_FILE = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/final_tracks/"+vid+"_final_tracks.txt"  # Replace with actual path
+    GROUND_TRUTH_FILE = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/"+seq+vid+"/gt/gt.txt"
+    OUTPUT_DIR = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/"+seq+vid+"/pred/"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     OUTPUT_FILE = os.path.join(OUTPUT_DIR, "predictions.txt")
     from trackeval.metrics.hota import HOTA
@@ -30,7 +31,7 @@ for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025
         data = {}
         with open(file_path, "r") as f:
             for line in f:
-                frame, track_id, x, y, w, h, _, _, _ = map(int, line.strip().split(","))
+                frame, track_id, x, y, w, h= map(int, line.strip().split(","))
                 frame=frame+1
                 if frame not in data:
                     data[frame] = []
@@ -41,7 +42,7 @@ for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025
         data = {}
         with open(file_path, "r") as f:
             for line in f:
-                frame, track_id, x, y, w, h, _, _, _ = map(int, line.strip().split(","))
+                frame, track_id, x, y, w, h,_,_,_ = map(int, line.strip().split(","))
                 if frame not in data:
                     data[frame] = []
                 data[frame].append([track_id, x, y, w, h])
@@ -145,7 +146,7 @@ for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025
     id_results = id_metric.eval_sequence(data)
     all_hota.append(hota_results['HOTA(0)'])
     all_idf.append(id_results['IDF1'])
-    print("Sequence S04 "+vid)
+    print("Sequence S01 "+vid)
     print("IDF1/ HOTA results:")
     print("{0:.2f}".format(id_results['IDF1']*100),'/',"{0:.2f}".format(hota_results['HOTA(0)']*100))
 
