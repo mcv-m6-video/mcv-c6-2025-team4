@@ -229,21 +229,21 @@ if __name__ == '__main__':
     cfg.DATASETS.TEST = ()
     cfg.DATALOADER.NUM_WORKERS = 2
     cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")  
-    cfg.SOLVER.IMS_PER_BATCH = 4
+    cfg.SOLVER.IMS_PER_BATCH = 8
     cfg.SOLVER.BASE_LR = 0.00025  
-    cfg.SOLVER.MAX_ITER = 10000
-    cfg.SOLVER.STEPS = [6000,8000]
+    cfg.SOLVER.MAX_ITER = 50000
+    cfg.SOLVER.STEPS = [6000,10000,14000,18000,22000,26000,30000,34000,38000,42000,46000]
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512   
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # Two classes, car 
     
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-    trainer = DefaultTrainer(cfg)
+    # trainer = DefaultTrainer(cfg)
 
-    trainer.resume_or_load(resume=False)
-    trainer.train()
+    # trainer.resume_or_load(resume=False)
+    # trainer.train()
 
 
-    cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")  # path to the model we just trained
+    cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final_old.pth")  # path to the model we just trained
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5 
     predictor = DefaultPredictor(cfg)
 

@@ -36,48 +36,151 @@ def get_color(track_id):
 
 
 seq='S03/'
-vid='c015'
-gt_boxes = load_ground_truth('E:/aic19-track1-mtmc-train/train/'+seq+vid+'/gt/gt.txt')
-pred_boxes=load_predictions("E:/aic19-track1-mtmc-train/train/"+seq+vid+"/pred/predictions.txt")
-# pred_boxes=load_predictions("C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+"_final_tracks.txt")
+for vid in ['c011','c012','c013','c010','c014','c015']:
+# for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028']:
+# for vid in ['c001','c002','c003','c004','c005']:
 
-frame_path="E:/aic19-track1-mtmc-train/train/"+seq+vid+"/frames"
-frame=cv2.imread(frame_path+"/frame_000000.jpg")
-fps = 8
-frame_width = int(np.shape(frame)[1])
-frame_height = int(np.shape(frame)[0])
+    gt_boxes = load_ground_truth('E:/aic19-track1-mtmc-train/train/'+seq+vid+'/gt/gt.txt')
+    pred_boxes=load_predictions("E:/aic19-track1-mtmc-train/train/"+seq+vid+"/pred/predictions.txt")
+    # pred_boxes=load_predictions("C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+"_final_tracks.txt")
+
+    frame_path="E:/aic19-track1-mtmc-train/train/"+seq+vid+"/frames"
+    frame=cv2.imread(frame_path+"/frame_000000.jpg")
+    fps = 8
+    frame_width = int(np.shape(frame)[1])
+    frame_height = int(np.shape(frame)[0])
 
 
-# Inicializar escritor de video
-output_path = "C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+'.mp4'
-# 
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+    # Inicializar escritor de video
+    output_path = "C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+'.mp4'
+    # 
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
-frame_total = int(len(os.listdir(frame_path)))
-sample_rate = 1
+    frame_total = int(len(os.listdir(frame_path)))
+    sample_rate = 1
 
-selected_frames = range(0, frame_total, sample_rate)
-for frame_idx in tqdm(selected_frames, desc="Processing video"):
+    selected_frames = range(0, frame_total, sample_rate)
+    for frame_idx in tqdm(selected_frames, desc="Processing video"):
 
-    frame=cv2.imread(frame_path+"/frame_"+str(frame_idx).zfill(6)+".jpg")
+        frame=cv2.imread(frame_path+"/frame_"+str(frame_idx).zfill(6)+".jpg")
 
-    if frame_idx in pred_boxes.keys():
-        for obj in pred_boxes[frame_idx]:
-            # print(obj)
-            track_id,x1, y1, x2, y2 =  map(int, obj)
-            
-            
-            # print(color)
-            cv2.rectangle(frame, (x1, y1), (x1+x2, y1+y2), (0,255,0), 2)
-            cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
-    # Optionally, draw ground truth boxes if available
-    if frame_idx in gt_boxes:
-        for gt in gt_boxes[frame_idx]:
-            _, x, y, w, h = gt
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        if frame_idx in pred_boxes.keys():
+            for obj in pred_boxes[frame_idx]:
+                # print(obj)
+                track_id,x1, y1, x2, y2 =  map(int, obj)
+                
+                
+                # print(color)
+                cv2.rectangle(frame, (x1, y1), (x1+x2, y1+y2), (0,255,0), 2)
+                cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
+        # Optionally, draw ground truth boxes if available
+        if frame_idx in gt_boxes:
+            for gt in gt_boxes[frame_idx]:
+                _, x, y, w, h = gt
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-    out.write(frame)
+        out.write(frame)
 
-out.release()
+    out.release()
+
+seq='S04/'
+# for vid in ['c011','c012','c013','c010','c014','c015']:
+for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028','c029','c030','c031','c032','c033','c034','c035','c036','c037','c038','c039','c040']:
+# for vid in ['c001','c002','c003','c004','c005']:
+
+    gt_boxes = load_ground_truth('E:/aic19-track1-mtmc-train/train/'+seq+vid+'/gt/gt.txt')
+    pred_boxes=load_predictions("E:/aic19-track1-mtmc-train/train/"+seq+vid+"/pred/predictions.txt")
+    # pred_boxes=load_predictions("C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+"_final_tracks.txt")
+
+    frame_path="E:/aic19-track1-mtmc-train/train/"+seq+vid+"/frames"
+    frame=cv2.imread(frame_path+"/frame_000000.jpg")
+    fps = 8
+    frame_width = int(np.shape(frame)[1])
+    frame_height = int(np.shape(frame)[0])
+
+
+    # Inicializar escritor de video
+    output_path = "C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+'.mp4'
+    # 
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+
+    frame_total = int(len(os.listdir(frame_path)))
+    sample_rate = 1
+
+    selected_frames = range(0, frame_total, sample_rate)
+    for frame_idx in tqdm(selected_frames, desc="Processing video"):
+
+        frame=cv2.imread(frame_path+"/frame_"+str(frame_idx).zfill(6)+".jpg")
+
+        if frame_idx in pred_boxes.keys():
+            for obj in pred_boxes[frame_idx]:
+                # print(obj)
+                track_id,x1, y1, x2, y2 =  map(int, obj)
+                
+                
+                # print(color)
+                cv2.rectangle(frame, (x1, y1), (x1+x2, y1+y2), (0,255,0), 2)
+                cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
+        # Optionally, draw ground truth boxes if available
+        if frame_idx in gt_boxes:
+            for gt in gt_boxes[frame_idx]:
+                _, x, y, w, h = gt
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+        out.write(frame)
+
+    out.release()
+
+seq='S03/'
+for vid in ['c011','c010']:
+# for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028']:
+# for vid in ['c001','c002','c003','c004','c005']:
+
+    gt_boxes = load_ground_truth('E:/aic19-track1-mtmc-train/train/'+seq+vid+'/gt/gt.txt')
+    pred_boxes=load_predictions("E:/aic19-track1-mtmc-train/train/"+seq+vid+"/pred/predictions.txt")
+    # pred_boxes=load_predictions("C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+"_final_tracks.txt")
+
+    frame_path="E:/aic19-track1-mtmc-train/train/"+seq+vid+"/frames"
+    frame=cv2.imread(frame_path+"/frame_000000.jpg")
+    fps = 8
+    frame_width = int(np.shape(frame)[1])
+    frame_height = int(np.shape(frame)[0])
+
+
+    # Inicializar escritor de video
+    output_path = "C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+'.mp4'
+    # 
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+
+    frame_total = int(len(os.listdir(frame_path)))
+    sample_rate = 1
+
+    selected_frames = range(0, frame_total, sample_rate)
+    for frame_idx in tqdm(selected_frames, desc="Processing video"):
+
+        frame=cv2.imread(frame_path+"/frame_"+str(frame_idx).zfill(6)+".jpg")
+
+        if frame_idx in pred_boxes.keys():
+            for obj in pred_boxes[frame_idx]:
+                # print(obj)
+                track_id,x1, y1, x2, y2 =  map(int, obj)
+                
+                
+                # print(color)
+                cv2.rectangle(frame, (x1, y1), (x1+x2, y1+y2), (0,255,0), 2)
+                cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
+        # Optionally, draw ground truth boxes if available
+        if frame_idx in gt_boxes:
+            for gt in gt_boxes[frame_idx]:
+                _, x, y, w, h = gt
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+        out.write(frame)
+
+    out.release()

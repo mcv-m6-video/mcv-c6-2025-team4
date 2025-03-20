@@ -7,8 +7,10 @@ all_idf=[]
 
 seq='S03/'
 
-for vid in ['c011','c012','c013','c010','c014','c015']:
-# for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028']:
+for vid in ['c010','c011','c012','c013','c014','c015']:
+
+# seq='s01/'
+# for vid in ['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028','c029','c030','c031','c032','c033','c034','c035','c036','c037','c038','c039','c040']:
 # for vid in ['c001','c002','c003','c004','c005']:
     # Paths to input files
     PREDICTIONS_FILE = "C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+"_final_tracks.txt"  # Replace with actual path

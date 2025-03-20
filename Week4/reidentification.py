@@ -6,13 +6,9 @@ sys.path.append('core')
 
 import cv2
 import numpy as np
-import torch
-from torchvision import models, transforms
-from src.sort import Sort  # Ya tienes implementado el algoritmo SORT
-import torchvision.ops as ops
-import json
-from tqdm import tqdm
-
+from haversine import haversine
+from math import sqrt
+from itertools import product
 
 # Device selection for optical flow
 
@@ -27,7 +23,7 @@ def load_start_times(txt_file, fps=10):
                 if video_id=='c015':
                     fps=8
                 start_frames[video_id] = int(time_seconds * fps)  # Convert time to frames
-    print(start_frames)
+    # print(start_frames)
     return start_frames
 
 def align_frame(vid, frame, start_frames):
@@ -121,7 +117,7 @@ def get_world_coordinates(detections, homographies, start_frames,distortions):
               [0, 0, 1]])
     
     for vid, dets in detections.items():
-        print(vid)
+        # print(vid)
 
         world_positions[vid] = []
         H_inv = homographies[vid]
@@ -153,14 +149,7 @@ def get_world_coordinates(detections, homographies, start_frames,distortions):
             world_positions[vid]=detect_dict 
     return world_positions
 
-fps={
-    'c010':10,
-    'c011':10,
-    'c012':10,
-    'c013':10,
-    'c014':10,
-    'c015':8
-}
+
 def find_corresponding_frame(vid1,vid2,frame1,start_frames,fps=None):
     if fps is not None:#vid1=='c015' or vid2=='c015':
 
@@ -180,8 +169,7 @@ def find_corresponding_frame(vid1,vid2,frame1,start_frames,fps=None):
 def find_order(start_frames):
     new_order=dict(sorted(start_frames.items(), key=lambda item: item[1],reverse=True))
     return new_order
-from math import radians, sin, cos, sqrt, atan2
-from itertools import product
+
 
 def decimal_to_dms(decimal_degree):
     """Convert decimal degrees to degrees, minutes, and seconds (DMS)."""
@@ -197,46 +185,68 @@ def euclidean_distance(coord1, coord2):
     lat2, lon2 = coord2
     return sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
 
-def haversine_distance_meters(coord1, coord2):
-    """Compute Haversine distance between two GPS coordinates in meters."""
-    R = 6371000  # Earth's radius in meters
-    lat1, lon1 = map(radians, coord1)
-    lat2, lon2 = map(radians, coord2)
+# def haversine_distance_meters(coord1, coord2):
+#     """Compute Haversine distance between two GPS coordinates in meters."""
+#     R = 6371000  # Earth's radius in meters
+#     lat1, lon1 = map(radians, coord1)
+#     lat2, lon2 = map(radians, coord2)
 
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
+#     dlat = lat2 - lat1
+#     dlon = lon2 - lon1
 
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+#     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+#     c = 2 * atan2(sqrt(a), sqrt(1 - a))
 
-    return R * c  # Distance in meters
+#     return R * c  # Distance in meters
 
-def find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, threshold=2.0):
+# def find_thresh(errors,vid1,vid2):
+#     th=[]
+#     # print(errors)
+#     for i in errors:
+#         if vid1 in i or vid2 in i:   
+#             # print(i)
+#             # print(errors[i])
+#             th.append(errors[i][0])
+#     # print(th)
+#     # a
+#     thresh=min(th)+np.std(th)
+#     return thresh# np.mean(th)
+
+def find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, vid1,vid2,errors):
     """Find matching objects based on Euclidean distance in world coordinates."""
     matches = []
     for (track1, coord1,box1), (track2, coord2,box2) in product(zip(track1s, coords1,bboxes1), zip(track2s, coords2,bboxes2)):
-        dist = haversine_distance_meters(np.array(coord1),np.array(coord2))
-        # print(dist)
+        dist=haversine(np.array(coord1),np.array(coord2),unit='m')
+        # threshold=find_thresh(errors,vid1,vid2)
+        # threshold =errors[vid1+vid2][2] - errors[vid1+vid2][3]
+        # threshold=errors[vid1+vid2][0]+errors[vid1+vid2][2]/errors[vid1+vid2][3]
+        if errors is not None:
+            if (errors[vid1+vid2][1]-errors[vid1+vid2][0])<20:
+                threshold=errors[vid1+vid2][0]
+            else:
+                threshold=errors[vid1+vid2][0]+errors[vid1+vid2][2]/errors[vid1+vid2][3]
+            # threshold =errors[vid1+vid2][2] - errors[vid1+vid2][3]
+        # print(vid1,vid2)
+        # # print(errors[vid1+vid2])
+        # print(threshold)
+        # a
+        else:
+            threshold=200
         if dist <= threshold:
             matches.append((track1, track2,box1,box2))  # Store track IDs and distance
     return matches
 
-
-def compare_lists(list1, list2, metric='haversine'):
-    """Compute similarity between two lists of GPS coordinates."""
-    distance_function = haversine_distance_meters if metric == 'haversine' else euclidean_distance
-    
-    # Compute all pairwise distances
-    distances = [(coord1, coord2, distance_function(coord1, coord2)) 
-                 for coord1, coord2 in product(list1, list2)]
-    
-    # Sort pairs by similarity (lower distance is better)
-    distances.sort(key=lambda x: x[2])
-
+def find_distance(coords1, coords2):
+    distances = []
+    for coord1, coord2 in product(coords1, coords2):
+        dist=haversine(np.array(coord1),np.array(coord2),unit='m')
+        distances.append(dist)
+        
     return distances
 
 
-def match_across_cameras(world_positions, start_frames, threshold=2.0,fps=None):
+
+def match_across_cameras(world_positions, start_frames,errors=None,fps=None):
     """
     Match objects across cameras using aligned frames and world coordinates.
     Uses the start times to align frames across cameras.
@@ -265,9 +275,8 @@ def match_across_cameras(world_positions, start_frames, threshold=2.0,fps=None):
                 track1s, coords1, bboxes1 = zip(*[(obj[0], [obj[1], obj[2]], [obj[3],obj[4],obj[5],obj[6]]) for obj in info1])
                 track2s, coords2, bboxes2 = zip(*[(obj[0], [obj[1], obj[2]], [obj[3],obj[4],obj[5],obj[6]]) for obj in info2])
                 
-
                 # Find matches within 5 meters
-                matches = find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, threshold=threshold)
+                matches = find_potential_matches(coords1, coords2, track1s, track2s,bboxes1,bboxes2, vid1,vid2,errors)
 
 
                 for track1, track2, bbox1,bbox2 in matches:
@@ -358,77 +367,12 @@ def save_tracks_to_files(final_tracks_per_camera, output_folder):
 
 
 
-# seq='S01/'
-# videos=['c001','c002','c003','c004','c005']
-seq='S03/'
-videos=['c010','c011','c012','c013','c014','c015']
-
-fps={
-    'c010':10,
-    'c011':10,
-    'c012':10,
-    'c013':10,
-    'c014':10,
-    'c015':8
-}
-output_dir = "./final_tracks/"
-video_dir = "E:/aic19-track1-mtmc-train/train/S01"
-start_frames = load_start_times("E:/aic19-track1-mtmc-train/cam_timestamp/"+seq.split('/')[0]+'.txt')
-
-homographies,distortions=load_homography("E:/aic19-track1-mtmc-train/train/"+seq,videos)
-
-gt_dict=load_ground_truth("E:/aic19-track1-mtmc-train/train/"+seq,videos)
-detections=load_predictions("C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/",videos)
-max_frame=get_max_frame(gt_dict)
-
-# Convert bounding boxes to world coordinates
-world_positions = get_world_coordinates(detections, homographies, start_frames,distortions)
-
-# Match detections across cameras
-matches = match_across_cameras(world_positions,start_frames,30,fps)
-
-
 def update_track_id(data, old_id, new_id):
     for frame, objects in data.items():
         for obj in objects:
             if obj[0] == old_id:
                 obj[0] = new_id
     return data
-
-# def filter_and_update_track_id(data, old_id, new_id):
-#     updated_data = {}
-#     for frame, objects in data.items():
-#         updated_objects = []
-#         for obj in objects:
-#             if obj[0] == old_id:
-#                 obj[0] = new_id
-#                 updated_objects.append(obj)
-#         if updated_objects:
-#             updated_data[frame] = updated_objects  # Only add the frame if it has been updated
-#     return updated_data
-
-# changed_ids={}
-# new_id=1
-# detections_reid=detections.copy()
-
-# # print(matches[0])
-# for element in matches:
-#     a=element[0]
-#     b=element[1]
-#     if a[0] not in changed_ids:
-#         changed_ids[a[0]]=[]
-#     if b[0] not in changed_ids:
-#         changed_ids[b[0]]=[]
-
-#     for i in a:
-#         if a[1] not in changed_ids[a[0]] and b[1] not in changed_ids[b[0]] :
-#             detections_reid[a[0]]=filter_and_update_track_id(detections_reid[a[0]],a[1],new_id)
-#             detections_reid[b[0]]=filter_and_update_track_id(detections_reid[b[0]],b[1],new_id)
-           
-#             changed_ids[a[0]].append(a[1])
-#             changed_ids[b[0]].append(b[1])
-#             # print(changed_ids)
-#             new_id=new_id+1
     
 
 def filter_and_update_track_id(data, old_id, new_id):
@@ -441,6 +385,97 @@ def filter_and_update_track_id(data, old_id, new_id):
         if updated_objects:
             updated_data[frame] = updated_objects  # Store only updated detections
     return updated_data
+
+
+def get_error(world_positions,start_frames,fps):
+    final_tracks_per_camera = []
+
+    vid_order=find_order(start_frames)
+    all_distances={}
+    for vid1 in vid_order:
+        
+        for frame1, info1 in world_positions[vid1].items():
+
+            for vid2 in world_positions:
+                if vid1 == vid2:
+                    continue  # Skip same video comparison
+
+                frame2=find_corresponding_frame(vid1,vid2,frame1,start_frames,fps)
+
+                if frame2<0 or frame2 not in world_positions[vid2].keys():
+                    continue
+
+                info2=world_positions[vid2][frame2]
+                if vid1+vid2 not in all_distances:
+                    all_distances[vid1+vid2]=[]
+                # Extract track IDs, coordinates, and bounding boxes
+                track1s, coords1, bboxes1 = zip(*[(obj[0], [obj[1], obj[2]], [obj[3],obj[4],obj[5],obj[6]]) for obj in info1])
+                track2s, coords2, bboxes2 = zip(*[(obj[0], [obj[1], obj[2]], [obj[3],obj[4],obj[5],obj[6]]) for obj in info2])
+
+                distances = find_distance(coords1, coords2)
+                all_distances[vid1+vid2].extend(distances)
+                # print(np.shape(np.array(distances)))
+                
+    # print(all_distances)
+    final_err={}
+    for combi in all_distances:
+        if combi not in final_err:
+            final_err[combi]=[]
+        dist=all_distances[combi]
+        # print(combi, np.shape(dist))
+        minim=min(dist)
+        # print(minim)
+        maxim=max(dist)
+        
+        mean=np.mean(dist)
+        # print(mean)
+        std=np.std(dist)
+        # print(std)
+        final_err[combi]=[minim,maxim,mean,std]
+
+    return final_err
+
+
+# seq='S01/'
+# videos=['c001','c002','c003','c004','c005']
+seq='S03/'
+videos=['c010','c011','c012','c013','c014','c015']
+
+fps={
+    'c001':10,
+    'c002':10,
+    'c003':10,
+    'c004':10,
+    'c005':10,
+    'c010':10,
+    'c011':10,
+    'c012':10,
+    'c013':10,
+    'c014':10,
+    'c015':8,
+    'c016':10,
+    'c017':10,'c018':10,'c019':10,'c020':10,'c021':10,'c022':10,'c023':10,'c024':10,'c025':10,'c026':10,'c027':10,'c028':10,'c029':10,'c030':10,'c031':10,'c032':10,'c033':10,'c034':10,'c035':10,'c036':10,'c037':10,'c038':10,'c039':10,'c040':10
+}
+# seq='S04/'
+# videos=['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028','c029','c030','c031','c032','c033','c034','c035','c036','c037','c038','c039','c040']
+
+
+output_dir = "./final_tracks/"
+video_dir = "E:/aic19-track1-mtmc-train/train/S01"
+start_frames = load_start_times("E:/aic19-track1-mtmc-train/cam_timestamp/"+seq.split('/')[0]+'.txt')
+
+homographies,distortions=load_homography("E:/aic19-track1-mtmc-train/train/"+seq,videos)
+
+gt_dict=load_ground_truth("E:/aic19-track1-mtmc-train/train/"+seq,videos)
+detections=load_predictions("C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/old_trackig/",videos)
+max_frame=get_max_frame(gt_dict)
+
+# Convert bounding boxes to world coordinates
+world_positions = get_world_coordinates(detections, homographies, start_frames,distortions)
+# errors=get_error(world_positions,start_frames,fps)
+# print(errors)
+# Match detections across cameras
+matches = match_across_cameras(world_positions,start_frames,None,fps)
 
 changed_ids = {}
 new_id = 1
@@ -463,8 +498,8 @@ for element in matches:
     
     # Track processed IDs within each video
     if a[1] not in changed_ids[a[0]] and b[1] not in changed_ids[b[0]]:
-        if a[0]=='c015' or b[0]=='c015':
-            print(a,b)
+        # if a[0]=='c015' or b[0]=='c015':
+            # print(a,b)
         updated_a = filter_and_update_track_id(detections[a[0]], a[1], new_id)
         updated_b = filter_and_update_track_id(detections[b[0]], b[1], new_id)
 
@@ -480,7 +515,7 @@ for element in matches:
 
         new_id += 1  # Increment new track_id
 
-print(detections_reid['c015'])
+# print(detections_reid['c016'])
 
 # print(detections_reid['c001'])
 save_tracks_to_files(detections_reid,output_dir)

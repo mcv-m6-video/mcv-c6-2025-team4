@@ -198,7 +198,7 @@ def load_start_times(txt_file, fps=10):
 
 
 seq='S04/'
-videos=['c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028','c029','c030','c031','c032','c033','c034','c035','c036','c037','c038','c039','c040']
+videos=['c016','c017','c018','c019','c020','c021','c022','c023','c024','c025','c026','c027','c028','c029','c030','c031','c032','c033','c034','c035','c036','c037','c038','c039','c040']
 
 start_frames_dict = load_start_times("E:/aic19-track1-mtmc-train/cam_timestamp/"+seq.split('/')[0]+'.txt')
 
