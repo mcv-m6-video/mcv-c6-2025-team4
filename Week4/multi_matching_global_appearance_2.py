@@ -5,7 +5,7 @@ import cv2
 from itertools import combinations
 
 # Import spatial/temporal functions from your global matching script
-from multi_matching_global import load_tracking_results, aggregate_tracklets, UnionFind, project_to_local, \
+from multi_matching_global_og import load_tracking_results, aggregate_tracklets, UnionFind, project_to_local, \
     load_timestamps, load_calibration
 
 # Import the feature extraction function from your DeepSORT embedder script
@@ -13,12 +13,12 @@ from deep_sort_multi_track_ROI import extract_feature
 
 
 # --------------------------------------------------
-# Function to load detection metadata from JSON
+# Function to load detection metadata from a JSON file
 # --------------------------------------------------
 def load_detection_metadata(metadata_file):
     with open(metadata_file, "r") as f:
         detection_metadata = json.load(f)
-    # Keys are expected to be strings (frame numbers)
+    # Expect keys to be strings (frame numbers) mapping to lists of detection dictionaries.
     return detection_metadata
 
 
@@ -27,19 +27,18 @@ def load_detection_metadata(metadata_file):
 # --------------------------------------------------
 def compute_average_embeddings_from_metadata(tracklets, detection_metadata, crops_folder, distance_threshold=50):
     """
-    For each tracklet, iterate over its frames and, from the detection metadata,
-    select the detection (if any) whose bounding box center is closest to the tracklet's
-    average center (provided the distance is below distance_threshold). Then, load the
-    corresponding crop image (using the "crop_filename" field) and compute its embedding.
-    The tracklet's "avg_embedding" is the average of all these embeddings.
+    For each tracklet (which has keys "frames" and "avg_center"), for each frame in the tracklet,
+    select the detection (from the provided detection_metadata, which is a dict keyed by frame number)
+    whose bounding-box center is closest to the tracklet's avg_center (if within distance_threshold).
+    Then load the corresponding crop image (using the "crop_filename" field) from crops_folder and compute
+    its embedding via extract_feature. The tracklet's "avg_embedding" is set as the average of these embeddings.
 
-    Also, store the selected detections in the tracklet under a new key "detections".
+    The selected detections are also stored in the tracklet under a new key "detections".
     """
     for tid, data in tracklets.items():
         embeddings = []
         selected_detections = []
         tracklet_frames = data.get("frames", [])
-        # The tracklet's average center as a numpy array:
         tracklet_center = np.array(data["avg_center"])
         for frame in tracklet_frames:
             key = str(frame)
@@ -49,7 +48,7 @@ def compute_average_embeddings_from_metadata(tracklets, detection_metadata, crop
             best_det = None
             best_dist = float('inf')
             for det in detections_in_frame:
-                # Expect each detection dict to have "bbox": [x, y, w, h]
+                # Expecting each detection dict to have "bbox": [x, y, w, h]
                 bbox = det.get("bbox")
                 if bbox is None:
                     continue
@@ -59,7 +58,6 @@ def compute_average_embeddings_from_metadata(tracklets, detection_metadata, crop
                 if dist < best_dist:
                     best_dist = dist
                     best_det = det
-            # If a detection is found and its distance is below threshold, use it.
             if best_det is not None and best_dist < distance_threshold:
                 selected_detections.append(best_det)
                 crop_filename = best_det.get("crop_filename")
@@ -76,7 +74,6 @@ def compute_average_embeddings_from_metadata(tracklets, detection_metadata, crop
                         print(f"Warning: Crop file {crop_path} not found.")
                 else:
                     print("Warning: 'crop_filename' not found in detection:", best_det)
-        # Attach the selected detections to the tracklet and compute the average embedding.
         data["detections"] = selected_detections
         if embeddings:
             data["avg_embedding"] = np.mean(embeddings, axis=0)
@@ -125,11 +122,11 @@ def associate_tracklets_with_embeddings(tracklets_cam1, tracklets_cam2, H1, H2, 
 
 
 # --------------------------------------------------
-# Function to detect missing detections in global groups
+# Function to detect missing detections in global groups (unchanged)
 # --------------------------------------------------
 def detect_missing_detections(groups, cam_ids):
     """
-    For each global group (e.g. keys like "c015_23"), determine which cameras are missing.
+    For each global group (keys like "c015_23"), determine which cameras are missing.
     """
     missing = {}
     for group_id, items in groups.items():
@@ -138,7 +135,6 @@ def detect_missing_detections(groups, cam_ids):
         if missing_cams:
             missing[group_id] = list(missing_cams)
     return missing
-
 
 def create_filtered_mot_files(tracking_files, groups, output_dir):
     """
@@ -194,25 +190,26 @@ def create_filtered_mot_files(tracking_files, groups, output_dir):
 
 
 # --------------------------------------------------
-# Main multi-camera matching pipeline using detection metadata
+# Main multi-camera matching pipeline using per-camera detection metadata
 # --------------------------------------------------
 if __name__ == "__main__":
     # Define camera IDs and paths (update these paths as needed)
-    cam_ids = ["c001", "c002", "c003", "c004", "c005"]
+    cam_ids = ['c011','c012','c013','c010','c014','c015']
     base_tracking_path = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/results"
-    # Original MOT files (these are the ones generated by your detection+tracking pipeline)
-    tracking_files = {
-        cam: os.path.join(base_tracking_path, f"s01_{cam}_roi.txt") for cam in cam_ids
-    }
+    tracking_files = {cam: os.path.join(base_tracking_path, f"s03_{cam}_roi.txt") for cam in cam_ids}
     calib_files = {
-        cam: f"/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/S01/{cam}/calibration.txt"
-        for cam in cam_ids
-    }
-    timestamp_file = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/cam_timestamp/S01.txt"
-    fps = 10
-    ref_gps = [42.498780, -90.686393]
+        cam: f"/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/S03/{cam}/calibration.txt"
+        for cam in cam_ids}
+    timestamp_file = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/cam_timestamp/S03.txt"
 
-    # Load timestamps and calibration matrices.
+    # For each camera, we assume a separate detection metadata JSON file exists.
+    # For example, files like "s03_c010_detection_metadata.json", etc.
+    detection_metadata_by_cam = {}
+    for cam in cam_ids:
+        metadata_file = os.path.join(base_tracking_path, f"s03_{cam}_detection_metadata.json")
+        detection_metadata_by_cam[cam] = load_detection_metadata(metadata_file)
+
+    # Load timestamps
     timestamps = {}
     with open(timestamp_file, "r") as f:
         for line in f:
@@ -222,38 +219,35 @@ if __name__ == "__main__":
                 timestamps[cam] = float(parts[1])
     H_cam = {cam: load_calibration(calib_files[cam]) for cam in cam_ids}
 
-    # ----------------------------------------------------------------------------
-    # Step 1: Aggregate tracklets from each camera (spatial–temporal data only)
-    # ----------------------------------------------------------------------------
+    fps = 10
+    ref_gps = [42.525678, -90.723601]
+
+    # Path to the folder with the saved detection crops
+    crops_folder = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/detection_crops"
+
+    # Aggregate tracklets for each camera.
+    # The aggregate_tracklets function produces tracklets with keys:
+    # 'frames', 'centers', 'start_time', 'end_time', and 'avg_center'.
+    # (These tracklets do not include per-detection info.)
     tracklets = {}
     for cam in cam_ids:
         tracking = load_tracking_results(tracking_files[cam])
-        tracklets[cam] = aggregate_tracklets(tracking, fps, timestamps[cam])
+        if cam == "c015":
+            tracklets[cam] = aggregate_tracklets(tracking, 8, timestamps[cam])
+        else:
+            tracklets[cam] = aggregate_tracklets(tracking, fps, timestamps[cam])
 
-    # ----------------------------------------------------------------------------
-    # Step 2: Attach detection metadata and compute appearance embeddings
-    # (Assume you have already computed and saved detection metadata for each camera.)
-    # Here you would call your function from your appearance module.
-    # For simplicity, we assume a single JSON file is used for all cameras.
-    # (If you have separate JSON files per camera, you can load and pass them per camera.)
-    detection_metadata_file = os.path.join(base_tracking_path, "s01_c003_detection_metadata.json")
-    # In our example, we load one JSON; adjust if you need to load per camera.
-    with open(detection_metadata_file, "r") as f:
-        detection_metadata = json.load(f)
-    # Compute appearance embeddings for each tracklet (this function updates the tracklet dictionary).
+    # Now, for each camera, attach detection data and compute average embeddings.
     tracklets_by_cam = {}
-    crops_folder = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/detection_crops"
     for cam in cam_ids:
         tracklets_by_cam[cam] = compute_average_embeddings_from_metadata(
             tracklets[cam],
-            detection_metadata,
+            detection_metadata_by_cam[cam],
             crops_folder,
-            distance_threshold=2000  # Adjust threshold as needed
+            distance_threshold=50
         )
 
-    # ----------------------------------------------------------------------------
-    # Step 3: Compute pairwise associations using the appearance model.
-    # ----------------------------------------------------------------------------
+    # Perform pairwise associations between cameras using spatial, temporal, and appearance cues.
     all_associations = []
     for cam1, cam2 in combinations(cam_ids, 2):
         assoc = associate_tracklets_with_embeddings(
@@ -265,38 +259,42 @@ if __name__ == "__main__":
             min_time_gap=1,
             time_tol=60,
             spatial_tol=50,
-            emb_threshold=0.5  # Adjust appearance similarity threshold as needed
+            emb_threshold=0.5
         )
         for tid1, tid2 in assoc:
             all_associations.append((f"{cam1}_{tid1}", f"{cam2}_{tid2}"))
+
     print("Pairwise associations found:")
     print(all_associations)
 
-    # ----------------------------------------------------------------------------
-    # Step 4: Merge associations using Union-Find.
-    # ----------------------------------------------------------------------------
+    # Use Union-Find (from your global matching script) to merge associations across cameras.
     uf = UnionFind()
     for a, b in all_associations:
         uf.union(a, b)
     groups = uf.get_groups()
 
-    # (Optional) Apply a timestamp-based ID offset if you want global IDs to follow a particular order.
-    cam_start_times = {cam: timestamps[cam] for cam in cam_ids}
-    sorted_cams = sorted(cam_start_times.keys(), key=lambda cam: cam_start_times[cam])
-    id_offset = {}
-    offset_value = 1
-    for cam in sorted_cams:
-        id_offset[cam] = offset_value
-        max_local = max(tracklets[cam].keys()) if tracklets[cam] else 0
-        offset_value += max_local
+    # Identify which cameras are missing detections in each global group.
+    missing_detections = detect_missing_detections(groups, cam_ids)
+
+    print("Missing detections per group:")
+    print(missing_detections)
+
+    # Output the global associations.
+    print("\nGlobal Associations (groups with matching tracklets across cameras):")
+    for group_id, items in groups.items():
+        if len(items) > 1:
+            print(f"Group {group_id}: {items}")
+
+    print("\nMissing Detections per Global Group (cameras that did not detect the car):")
+    for group_id, missing_cams in missing_detections.items():
+        print(f"Group {group_id} missing in cameras: {missing_cams}")
 
     # Set output directory for new MOT files:
-    output_dir = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/Global_Tracking_New"
+    output_dir = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/Global_Tracking_New_s03"
 
     # Call the function to create new MOT files.
     create_filtered_mot_files(tracking_files, groups, output_dir)
 
-    # (Optional) Further processing such as re-detection or interpolation can be added here.
 
 
 

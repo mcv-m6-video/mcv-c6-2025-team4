@@ -9,7 +9,7 @@ all_idf=[]
 seq='S03/'
 for vid in ['c010','c011','c012','c013','c014', 'c015']:
     # Paths to input files
-    PREDICTIONS_FILE = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Global_Tracking_Miren_S03/"+vid+"_global.txt"  # Replace with actual path
+    PREDICTIONS_FILE = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/final_tracks/"+vid+"_final_tracks.txt"  # Replace with actual path
     GROUND_TRUTH_FILE = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/"+seq+vid+"/gt/gt.txt"
     OUTPUT_DIR = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/"+seq+vid+"/pred/"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -31,7 +31,7 @@ for vid in ['c010','c011','c012','c013','c014', 'c015']:
         data = {}
         with open(file_path, "r") as f:
             for line in f:
-                frame, track_id, x, y, w, h, _, _, _= map(int, line.strip().split(","))
+                frame, track_id, x, y, w, h= map(int, line.strip().split(","))
                 frame=frame+1
                 if frame not in data:
                     data[frame] = []

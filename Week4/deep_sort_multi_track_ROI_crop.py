@@ -5,6 +5,7 @@ from torchvision import transforms
 import sys
 import os
 from tqdm import tqdm
+import json
 
 # --------------------------
 # 1. Set up the vehicle detector using Detectron2
@@ -30,8 +31,8 @@ from fastreid.engine.defaults import DefaultPredictor as FRPredictor
 
 fr_cfg = get_fr_cfg()
 fr_cfg.merge_from_file(
-    "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/models/bagtricks_R50-ibn_veriwild.yml")  # Update with your FastReID config file
-fr_cfg.MODEL.WEIGHTS = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/models/veriwild_bot_R50-ibn.pth"  # Update with your FastReID weights path
+    "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/models/bagtricks_R50-ibn_vehicleid.yml")  # Update with your FastReID config file
+fr_cfg.MODEL.WEIGHTS = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/models/vehicleid_bot_R50-ibn.pth"  # Update with your FastReID weights path
 fr_cfg.MODEL.DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 fr_predictor = FRPredictor(fr_cfg)
 
@@ -43,6 +44,7 @@ fr_transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
 ])
+
 
 def extract_feature(crop):
     """
@@ -57,21 +59,42 @@ def extract_feature(crop):
 
 
 # --------------------------
-# 3. Define chipper and embedder functions
+# 3. Define chipper and embedder functions with crop saving capability
 # --------------------------
-def chipper(frame, detections):
+def chipper(frame, detections, save_dir=None, frame_idx=None, camera_id="c015"):
     """
-    Given a frame and a list of detections, return a list of object chips (crops).
-    Each detection is expected to be a tuple: ([left, top, w, h], confidence, detection_class)
+    Given a frame and a list of detections, return:
+       - a list of object chips (crops)
+       - a list of detection info dictionaries.
+    Each detection is expected to be a tuple: ([left, top, w, h], confidence, detection_class).
+    If 'save_dir' and 'frame_idx' are provided, the function saves each crop as an image
+    and creates a field "crop_filename" using the pattern:
+         frame_{frame_idx:06d}_det_{i:02d}_{camera_id}.jpg
     """
     chips = []
-    for det in detections:
+    detection_info = []  # List to hold per-detection dictionaries
+    for i, det in enumerate(detections):
         bbox, conf, det_class = det
-        left, top, w, h = bbox
-        left, top, w, h = int(left), int(top), int(w), int(h)
-        chip = frame[top:top + h, left:left + w]
+        left, top, w, h = map(int, bbox)
+        chip = frame[top:top+h, left:left+w]
         chips.append(chip)
-    return chips
+        crop_filename = None
+        if save_dir is not None and frame_idx is not None:
+            os.makedirs(save_dir, exist_ok=True)
+            crop_filename = f"frame_{frame_idx:06d}_det_{i:02d}_{camera_id}.jpg"
+            chip_path = os.path.join(save_dir, crop_filename)
+            cv2.imwrite(chip_path, chip)
+        # Convert bbox values, score, and frame to native Python types.
+        detection_info.append({
+            "bbox": [float(x) for x in bbox],
+            "score": float(conf),
+            "det_class": int(det_class),
+            "crop_filename": crop_filename,
+            "frame": int(frame_idx)
+        })
+    return chips, detection_info
+
+
 
 def embedder(chips):
     """
@@ -105,13 +128,10 @@ def in_roi(bbox, roi_mask, min_ratio=0.5):
     x2 = min(x2, roi_mask.shape[1] - 1)
     y2 = min(y2, roi_mask.shape[0] - 1)
 
-    # If invalid region or no overlap
     if x2 <= x or y2 <= y:
         return False
 
-    # Extract the corresponding patch from the ROI
     patch = roi_mask[y:y2, x:x2]
-    # Count how many pixels are non-zero (inside ROI)
     inside = np.count_nonzero(patch)
     total = patch.size
     ratio = inside / float(total)
@@ -138,7 +158,6 @@ def save_mot_format(tracked_objects, output_mot_path):
             for obj_id, (bbox, _) in objects.items():
                 x1, y1, x2, y2 = map(int, bbox)
                 width, height = x2 - x1, y2 - y1
-                # MOT format: frame, id, x, y, w, h, score, class, visibility
                 f.write(f"{frame_idx}, {obj_id}, {x1}, {y1}, {width}, {height}, 1, 1, 1\n")
 
 
@@ -154,13 +173,20 @@ def get_color(track_id):
 
 
 # --------------------------
-# 8. Main tracking loop with ROI filtering
+# 8. Main tracking loop with ROI filtering, crop saving, and detection metadata collection
 # --------------------------
 if __name__ == "__main__":
-    video_path = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/S03/c015/vdo.avi"
-    roi_path = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/S03/c015/roi.jpg"
+    video_path = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/S04/c040/vdo.avi"
+    roi_path = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/S04/c040/roi.jpg"
 
-    # Load ROI as a single-channel mask (0=outside, 255=inside)
+    # Directory to save original detection crops (raw crops without drawn boxes)
+    crops_save_dir = "Week4/detection_crops"
+
+    # File to save detection metadata (per detection info including crop_filename)
+    detection_metadata_file = "Week4/results/s04_c040_detection_metadata.json"
+    all_detection_metadata = {}  # Dictionary keyed by frame index
+
+    # Load ROI as a single-channel mask
     roi_mask = cv2.imread(roi_path, cv2.IMREAD_GRAYSCALE)
     if roi_mask is None:
         print("Error: Could not load ROI mask from:", roi_path)
@@ -175,11 +201,9 @@ if __name__ == "__main__":
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    # Folder to store processed frames
-    output_folder = "Week4/video_frames/s03_c015_roi_wild"
+    output_folder = "Week4/video_frames/s04_c040_roi"
     os.makedirs(output_folder, exist_ok=True)
 
-    # Dictionary to store tracking results for MOT
     tracked_dict = {}
 
     frame_idx = 0
@@ -188,7 +212,6 @@ if __name__ == "__main__":
         if not ret:
             break
 
-        # Detect objects with Detectron2
         outputs = detector(frame)
         instances = outputs["instances"]
         detections = []
@@ -198,34 +221,29 @@ if __name__ == "__main__":
             for box, score in zip(boxes, scores):
                 x1, y1, x2, y2 = box
                 w, h = x2 - x1, y2 - y1
-                # ([left, top, w, h], confidence, detection_class)
                 detections.append(([x1, y1, w, h], score, 0))
 
-        # -----------------------------
-        # ROI FILTERING STEP
-        # Keep only detections whose bounding box has >= 50% overlap with the ROI
         filtered_detections = []
         for det in detections:
             bbox, conf, cls_ = det
             if in_roi(bbox, roi_mask, min_ratio=0.5):
                 filtered_detections.append(det)
 
-        # If no detections remain after ROI filtering, skip
+        # If no valid detections, save the frame as-is and continue.
         if len(filtered_detections) == 0:
-            # Just save the frame as-is
             frame_filename = os.path.join(output_folder, f"frame_{frame_idx:06d}.jpg")
             cv2.imwrite(frame_filename, frame)
             frame_idx += 1
             print(f"Frame {frame_idx} - No detections after ROI filtering.")
             continue
 
-        # -----------------------------
-        # Extract chips & embeddings
-        object_chips = chipper(frame, filtered_detections)
+        # Extract chips and also collect detection metadata (including crop filenames)
+        object_chips, detection_info = chipper(frame, filtered_detections, save_dir=crops_save_dir, frame_idx=frame_idx, camera_id="c015")
+        # Save the detection info for this frame in our global dictionary.
+        all_detection_metadata[frame_idx] = detection_info
+
         embeds = embedder(object_chips)
 
-        # -----------------------------
-        # Update DeepSORT tracker
         tracks = tracker.update_tracks(filtered_detections, embeds=embeds)
         frame_tracking = {}
         for track in tracks:
@@ -235,7 +253,6 @@ if __name__ == "__main__":
             ltrb = track.to_ltrb()  # [left, top, right, bottom]
             x1, y1, x2, y2 = [int(v) for v in ltrb]
             frame_tracking[track_id] = ([x1, y1, x2, y2], frame_idx)
-            # Draw bounding box & ID
             color = get_color(track_id)
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10),
@@ -243,7 +260,6 @@ if __name__ == "__main__":
 
         tracked_dict[frame_idx] = frame_tracking
 
-        # Save processed frame
         frame_filename = os.path.join(output_folder, f"frame_{frame_idx:06d}.jpg")
         cv2.imwrite(frame_filename, frame)
 
@@ -251,14 +267,18 @@ if __name__ == "__main__":
         print(f"Procesado frame {frame_idx} con {len(filtered_detections)} detecciones válidas.")
 
     cap.release()
-
-    # Check saved frames
     saved_frames = os.listdir(output_folder)
     print(f"Se han guardado {len(saved_frames)} frames en la carpeta '{output_folder}'.")
 
-    # Save tracking results in MOT format
-    mot_output_path = "Week4/results/s03_c015_roi_wild.txt"
+    mot_output_path = "Week4/results/s04_c040_roi.txt"
     save_mot_format(tracked_dict, mot_output_path)
-    print("Tracking completado con filtrado por ROI. Frames y resultados MOT guardados.")
+    print("Tracking completado con filtrado por ROI. Frames, resultados MOT y crops guardados.")
+
+    # Save the detection metadata to a JSON file for later use in multi-camera matching.
+    os.makedirs(os.path.dirname(detection_metadata_file), exist_ok=True)
+    with open(detection_metadata_file, "w") as f:
+        json.dump(all_detection_metadata, f, indent=4)
+    print(f"Detection metadata saved to {detection_metadata_file}.")
+
 
 

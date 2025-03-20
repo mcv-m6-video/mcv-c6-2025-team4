@@ -25,7 +25,7 @@ fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # También puedes probar "XVID" o "MJP
 video_writer = cv2.VideoWriter(output_video, fourcc, fps, (width, height))
 
 print(f"Creando video: {output_video}")
-for frame_path in frame_paths:
+for frame_path in frame_paths[210:380]:
     frame = cv2.imread(frame_path)
     if frame is None:
         print(f"Advertencia: No se pudo leer el frame {frame_path}. Se omitirá.")

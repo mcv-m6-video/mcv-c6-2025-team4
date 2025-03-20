@@ -100,6 +100,6 @@ def main(video_path, detections_file, output_folder, target_fps=10):
 
 if __name__ == "__main__":
     video_path = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/S03/c010/vdo.avi"  # Ruta al video .avi
-    detections_file = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Global_Tracking_Miren_S03/c010_global.txt"  # Ruta al archivo .txt con las detecciones
-    output_folder = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/video_frames/s03_c010_global"  # Carpeta de salida para los frames anotados
+    detections_file = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/data/aic19-track1-mtmc-train/train/S03/c010/pred/predictions.txt"  # Ruta al archivo .txt con las detecciones
+    output_folder = "/home/toukapy/Dokumentuak/Master CV/C6/mcv-c6-2025-team4/Week4/video_frames/s03_c010_global_new"  # Carpeta de salida para los frames anotados
     main(video_path, detections_file, output_folder, target_fps=10)
