@@ -16,6 +16,7 @@ for vid in ['c010','c011','c012','c013','c014','c015']:
     PREDICTIONS_FILE = "C:/Users/User/Documents/GitHub/mcv-c6-2025-team4/Week4/final_tracks/"+vid+"_final_tracks.txt"  # Replace with actual path
     GROUND_TRUTH_FILE = "E:/aic19-track1-mtmc-train/train/"+seq+vid+"/gt/gt.txt"
     OUTPUT_DIR = "E:/aic19-track1-mtmc-train/train/"+seq+vid+"/pred/"
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     OUTPUT_FILE = os.path.join(OUTPUT_DIR, "predictions.txt")
     from trackeval.metrics.hota import HOTA
