@@ -152,3 +152,10 @@ Mask*/
 /Week4/reidentification_2.py
 /Week4/faster_rcnn_R_50_FPN_3x.yaml
 /Week4/model_final_old.pth
+/Week1/output_videos
+/Week4/__pycache__
+*.txt
+*.mp4
+*.jpg
+/Week4/output
+/Week4/FlowFormer
