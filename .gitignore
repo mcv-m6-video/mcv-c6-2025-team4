@@ -24,6 +24,7 @@ RAFT/
 /Week3/things.pth
 /Week3/things_kitti.pth
 /Week3/articles/
+outputs_track/
 Mask*/
 *.pth
 /Week3/FlowFormer/
