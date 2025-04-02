@@ -92,9 +92,12 @@ While multiple versions of the X3D model were experimented with, **X3D-6** prove
 - **X3D + Optical Flow**: Combined model using optical flow for improved motion understanding.
 - **SlowFast**: Multi-pathway model, better for motion understanding, but computationally heavy.
 
-## Running the Optical Flow Model
+### Optical Flow
 
-To run the Optical Flow model, there is a dedicated folder called `optical_flow` that follows the same structure as the main project. You can use the `main_classification.py` file in the `opticalflow` folder, with the same setup and configuration as the main project. The only difference is that you will be working with motion-based features derived from optical flow.
+To run the optical flow model, ensure that the frame folders for each match are correctly structured. Each folder should have the same name as the match but with `_flow` appended at the end. Inside these folders, there should be an `.npy` file for each optical flow calculated for the respective pair of frames of the match.
 
-Follow the same procedure as described earlier to run the model, and ensure that the correct configuration file is used for the optical flow setup.
+To calculate the optical flow, you can use the script `opticalflow.py`. This script is designed to calculate the optical flow for a single match. However, by modifying the paths in the script, you can calculate the optical flow for other matches as well.
+
+Ensure that the resulting flow files are placed in the correct folders following the naming convention (`<match_name>_flow/`), where each `.npy` file corresponds to the optical flow for a specific pair of frames of the match.
+
 
