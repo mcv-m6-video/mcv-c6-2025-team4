@@ -79,68 +79,152 @@ class Model(BaseRGBModel):
             except Exception as e:
                 print(f"Could not calculate FLOPs: {e}")
 
-    class X3DClassifier(nn.Module):
-      def __init__(self, args=None):
-          super().__init__()
-          self.model = torch.hub.load('facebookresearch/pytorchvideo', 'x3d_m', pretrained=True)
-          
-          # Replace final classification layer
-          self.model.blocks[-1].proj = nn.Linear(2048, args.num_classes)
-          
-          for param in self.model.parameters():
-            param.requires_grad = False  # Freeze all parameters
-        
-          # Unfreeze the last few layers
-          for param in self.model.blocks[-1].parameters():  
-              param.requires_grad = True
-          
-          # Mejor combinaciÃ³n de augmentaciones
-          self.augmentation = T.Compose([
-              T.RandomApply([T.ColorJitter(hue=0.1, brightness=0.8, contrast=0.8)], p=0.3),
-              T.RandomHorizontalFlip(),
-          ])
+    class Impl_att(nn.Module):
 
-          # NormalizaciÃ³n
-          self.standarization = T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+        def __init__(self, args = None):
+            super().__init__()
+            self._feature_arch = args.feature_arch
 
-          
-      def forward(self, x):
+            if self._feature_arch.startswith(('rny002', 'rny004', 'rny008')):
+                features = timm.create_model({
+                    'rny002': 'regnety_002',
+                    'rny004': 'regnety_004',
+                    'rny008': 'regnety_008',
+                }[self._feature_arch.rsplit('_', 1)[0]], pretrained=True)
+                feat_dim = features.head.fc.in_features
+
+                # Remove final classification layer
+                features.head.fc = nn.Identity()
+                self._d = feat_dim
+
+            else:
+                raise NotImplementedError(args._feature_arch)
+
+            self._features = features
+
+            # Self-Attention Layer
+            self._self_attn = nn.MultiheadAttention(embed_dim=self._d, num_heads=8, batch_first=True)
+            self._norm1 = nn.LayerNorm(self._d)
+
+            # MLP for classification
+            self._fc = FCLayers(self._d, args.num_classes)
+
+            #Augmentations and crop
+            self.augmentation = T.Compose([
+                T.RandomApply([T.ColorJitter(hue = 0.2)], p = 0.25),
+                T.RandomApply([T.ColorJitter(saturation = (0.7, 1.2))], p = 0.25),
+                T.RandomApply([T.ColorJitter(brightness = (0.7, 1.2))], p = 0.25),
+                T.RandomApply([T.ColorJitter(contrast = (0.7, 1.2))], p = 0.25),
+                T.RandomApply([T.GaussianBlur(5)], p = 0.25),
+                T.RandomHorizontalFlip(),
+            ])
+
+            #Standarization
+            self.standarization = T.Compose([
+                T.Normalize(mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225)) #Imagenet mean and std
+            ])
+
+        def forward(self, x):
             x = self.normalize(x) #Normalize to 0-1
+            batch_size, clip_len, channels, height, width = x.shape #B, T, C, H, W
 
             if self.training:
                 x = self.augment(x) #augmentation per-batch
 
             x = self.standarize(x) #standarization imagenet stats
-             #B, T, C, H, W to #B, C, T,H, W    
-            x = x.permute(0, 2, 1, 3, 4)     
-           
-              
-            return self.model(x)
-            
-      def normalize(self, x):
+                        
+            im_feat = self._features(
+                x.view(-1, channels, height, width)
+            ).reshape(batch_size, clip_len, self._d) #B, T, D
+
+            #Max pooling
+            # im_feat = torch.max(im_feat, dim=1)[0] #B, D
+
+            # Self-Attention
+            im_feat = self.norm1(im_feat)  # Normalize before attention
+            im_feat, _ = self.self_attn(im_feat, im_feat, im_feat)  # Apply self-attention
+            im_feat = im_feat.mean(dim=1)  # Aggregate features (mean pooling instead of max)
+
+            #MLP
+            im_feat = self._fc(im_feat) #B, num_classes
+
+            return im_feat 
+        
+        def normalize(self, x):
             return x / 255.
         
-      def augment(self, x):
-          for i in range(x.shape[0]):
-              x[i] = self.augmentation(x[i])
-          return x
+        def augment(self, x):
+            for i in range(x.shape[0]):
+                x[i] = self.augmentation(x[i])
+            return x
 
-      def standarize(self, x):
-          for i in range(x.shape[0]):
-              x[i] = self.standarization(x[i])
-          return x
+        def standarize(self, x):
+            for i in range(x.shape[0]):
+                x[i] = self.standarization(x[i])
+            return x
 
-      def print_stats(self):
+        def print_stats(self):
+            print('Model params:',
+                sum(p.numel() for p in self.parameters()))
+            
+
+    class X3DClassifier(nn.Module):
+        def __init__(self, args=None):
+            super().__init__()
+            self.model = torch.hub.load('facebookresearch/pytorchvideo', 'x3d_m', pretrained=True)
+            self.model.blocks[-1].proj = nn.Linear(2048, args.num_classes)
+
+            for param in self.model.parameters():
+                param.requires_grad = False
+
+            for param in self.model.blocks[-1].parameters():
+                param.requires_grad = True
+            # for param in self.model.blocks[-2].parameters(): #uncomment to unfreeze more layers
+            #     param.requires_grad = True
+            # for param in self.model.blocks[-3].parameters():
+            #     param.requires_grad = True
+
+            self.augmentation = T.Compose([
+                T.RandomApply([T.ColorJitter(hue = 0.2)], p = 0.25),
+                T.RandomApply([T.ColorJitter(saturation = (0.7, 1.2))], p = 0.25),
+                T.RandomApply([T.ColorJitter(brightness = (0.7, 1.2))], p = 0.25),
+                T.RandomApply([T.ColorJitter(contrast = (0.7, 1.2))], p = 0.25),
+                T.RandomApply([T.GaussianBlur(5)], p = 0.25),
+                T.RandomHorizontalFlip(),
+            ])
+
+            self.standarization = T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+
+        def forward(self, x):
+            x = self.normalize(x)
+            if self.training:
+                x = self.augment(x)
+            x = self.standarize(x)
+            x = x.permute(0, 2, 1, 3, 4)
+            return self.model(x)
+
+        def normalize(self, x):
+            return x / 255.
+
+        def augment(self, x):
+            for i in range(x.shape[0]):
+                x[i] = self.augmentation(x[i])
+            return x
+
+        def standarize(self, x):
+            for i in range(x.shape[0]):
+                x[i] = self.standarization(x[i])
+            return x
+
+        def print_stats(self):
             total_params = sum(p.numel() for p in self.parameters())
             trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        
+
             print(f"Total parameters: {total_params:,}")
             print(f"Trainable parameters: {trainable_params:,}")
-        
-            # Create a dummy input matching the model's expected input shape
-            dummy_input = torch.randn(4, 50, 3, 224, 398).to(next(self.parameters()).device) 
-        
-            # Compute FLOPs and MACs
+
+            dummy_input = torch.randn(4, 50, 3, 224, 398).to(next(self.parameters()).device)
+
             self.eval()
             try:
                 flops = FlopCountAnalysis(self, dummy_input)
@@ -149,6 +233,64 @@ class Model(BaseRGBModel):
             except Exception as e:
                 print(f"Could not calculate FLOPs: {e}")
 
+    class r2plus1d_18(nn.Module):
+        def __init__(self, args=None, pretrained=True):
+            super().__init__()
+            self.backbone = models.r2plus1d_18(pretrained=pretrained)  # I3D-like model
+            self.backbone.fc = nn.Identity()  # Remove final classification layer
+            self.fc = nn.Linear(512, args.num_classes)  # New classification head
+
+            #Augmentations and crop
+            self.augmentation = T.Compose([
+                T.RandomApply([T.ColorJitter(hue = 0.2)], p = 0.25),
+                T.RandomApply([T.ColorJitter(saturation = (0.7, 1.2))], p = 0.25),
+                T.RandomApply([T.ColorJitter(brightness = (0.7, 1.2))], p = 0.25),
+                T.RandomApply([T.ColorJitter(contrast = (0.7, 1.2))], p = 0.25),
+                T.RandomApply([T.GaussianBlur(5)], p = 0.25),
+                T.RandomHorizontalFlip(),
+            ])
+
+            #Standarization
+            self.standarization = T.Compose([
+                T.Normalize(mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225)) #Imagenet mean and std
+            ])
+
+
+        def forward(self, x):
+            
+            x = self.normalize(x) #Normalize to 0-1
+            # x = x / 255.0  # Normalize to 0-1
+
+            if self.training:
+                x = self.augment(x) #augmentation per-batch
+
+            x = self.standarize(x) #standarization imagenet stats
+            
+            #B, T, C, H, W to  #B, C, T,H, W
+            x = x.permute(0, 2, 1, 3, 4)  
+            
+            x = self.backbone(x)  # Feature extraction
+            x = self.fc(x)  # Classification
+
+            return x
+
+        def normalize(self, x):
+            return x / 255.
+        
+        def augment(self, x):
+            for i in range(x.shape[0]):
+                x[i] = self.augmentation(x[i])
+            return x
+
+        def standarize(self, x):
+            for i in range(x.shape[0]):
+                x[i] = self.standarization(x[i])
+            return x
+
+        def print_stats(self):
+            print('Model params:',
+                sum(p.numel() for p in self.parameters()))
+      
     class SlowFast(nn.Module):
         def __init__(self, args):
             super().__init__()
