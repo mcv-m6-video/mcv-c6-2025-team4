@@ -38,7 +38,8 @@ For additional details on configuration options using the configuration file, re
   
 ### Model-Specific Configurations
 
-For **X3D** and **SlowFast** models, the model name must be changed in the `model_classification.py` file, located in the [model](model/) directory. You need to set the correct model name to the one you want to use.
+For all models, the model name must be specified in the `model_classification.py` file, located in the [model](model/) directory. You need to set the correct model name to the one you want to use in line 449 of the script.
+
 
 Additionally, the `.pt` file for the best checkpoint is located in `week5/checkpoint_best.pt',. Ensure that this file is properly placed before running the model.
 
