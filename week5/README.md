@@ -91,3 +91,9 @@ While multiple versions of the X3D model were experimented with, **X3D-6** prove
 - **X3D + Optical Flow**: Combined model using optical flow for improved motion understanding.
 - **SlowFast**: Multi-pathway model, better for motion understanding, but computationally heavy.
 
+## Running the Optical Flow Model
+
+To run the Optical Flow model, there is a dedicated folder called `optical_flow` that follows the same structure as the main project. You can use the `main_classification.py` file in the `opticalflow` folder, with the same setup and configuration as the main project. The only difference is that you will be working with motion-based features derived from optical flow.
+
+Follow the same procedure as described earlier to run the model, and ensure that the correct configuration file is used for the optical flow setup.
+
