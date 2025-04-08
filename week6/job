@@ -1,0 +1,19 @@
+#!/bin/bash
+#SBATCH -J job
+#SBATCH -p mlow
+#SBATCH -N 1
+#SBATCH -n 9
+#SBATCH --mem=30GB
+#SBATCH --gres=gpu:1
+##################################################
+#SBATCH -o /export/home/c5mcv02/CVMasterActionSpotting/logs/temporaltransformer_%x_%u_%j.out # File to which STDOUT will be written
+#SBATCH -e /export/home/c5mcv02/CVMasterActionSpotting/logs/temporaltransformer_%x_%u_%j.err # File to which STDERR will be written
+##################################################
+squeue -o "%.17i %.15j %.10u %.3t %.10M %.6D %.4C %.6b %.15R %.10m" -j $SLURM_JOB_ID
+eval "$(conda shell.bash hook)"
+conda activate c6
+start=`date +%s`
+python /export/home/c5mcv02/CVMasterActionSpotting/main_spotting.py --model temporaltransformer2
+end=`date +%s`
+runtime=$((end-start))
+echo Total execution time: $runtime seconds
