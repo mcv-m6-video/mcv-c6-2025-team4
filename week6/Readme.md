@@ -102,7 +102,7 @@ Model code is in `model_spotting.py`.
 | Slow Fusion                        | 0.53  | 0.63  | 7.03        | 153.06    | Sliding window 2D+3D |
 
 ---
-
+| Hybrid + Positional Encoding         | 25.92 | 24.74 | 9.02        | 41.22     | Best overall (positional encoding + hybrid) |
 ## Insights
 
 - Explicit temporal modeling improves performance significantly (LSTM, Transformer).
@@ -138,3 +138,4 @@ Model code is in `model_spotting.py`.
 
 - Albert Clapés: [aclapes@ub.edu](mailto:aclapes@ub.edu)  
 - Artur Xarles: [arturxe@gmail.com](mailto:arturxe@gmail.com)
+
