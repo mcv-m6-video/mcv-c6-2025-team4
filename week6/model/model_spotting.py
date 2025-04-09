@@ -103,6 +103,111 @@ class Impl(nn.Module):
             print(parameter_count_table(self))
         except Exception as e:
             print(f"Could not calculate FLOPs: {e}")
+            
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_len=5000):
+        super().__init__()
+        pe = torch.zeros(max_len, d_model)  # [T, D]
+        position = torch.arange(0, max_len).unsqueeze(1)  # [T, 1]
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-torch.log(torch.tensor(10000.0)) / d_model))  # [D/2]
+
+        pe[:, 0::2] = torch.sin(position * div_term)  # Even indices
+        pe[:, 1::2] = torch.cos(position * div_term)  # Odd indices
+        pe = pe.unsqueeze(0)  # [1, T, D]
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        return x + self.pe[:, :x.size(1)]
+        
+
+class HybridTransformerLSTMModel2(nn.Module):
+    def __init__(self, args=None):  # Arreglado __init__
+        super().__init__()
+        self._feature_arch = args.feature_arch
+
+        # Backbone (RegNetY)
+        if self._feature_arch.startswith(('rny002', 'rny004', 'rny008')):
+            features = timm.create_model({
+                'rny002': 'regnety_002',
+                'rny004': 'regnety_004',
+                'rny008': 'regnety_008',
+            }[self._feature_arch.rsplit('_', 1)[0]], pretrained=True)  # Arreglado _feature_arch
+            feat_dim = features.head.fc.in_features
+            features.head.fc = nn.Identity()
+            self._d = feat_dim
+        else:
+            raise NotImplementedError(args._feature_arch)
+
+        self._features = features
+
+        # Positional Encoding for temporal order
+        self.pos_encoder = PositionalEncoding(self._d)
+
+        # Transformer encoder (global context)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=self._d, nhead=8, dim_feedforward=1024, dropout=0.1, batch_first=True)
+        self.temporal_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
+
+        # BiLSTM (local continuity)
+        self.temporal_rnn = nn.LSTM(
+            input_size=self._d, hidden_size=512, num_layers=1,
+            batch_first=True, bidirectional=True
+        )
+
+        # Final classifier
+        self._fc = FCLayers(512 * 2, args.num_classes + 1)
+
+        # Augmentations
+        self.augmentation = T.Compose([
+            T.RandomApply([T.ColorJitter(hue=0.2)], p=0.25),
+            T.RandomHorizontalFlip(),
+        ])
+        self.standarization = T.Normalize(mean=(0.485, 0.456, 0.406),
+                                          std=(0.229, 0.224, 0.225))
+
+    def forward(self, x):
+        x = x / 255.
+        B, T, C, H, W = x.shape
+    
+        if self.training:
+            for i in range(B):
+                x[i] = self.augmentation(x[i])
+        for i in range(B):
+            x[i] = self.standarization(x[i])
+    
+        # Visual features
+        x = x.view(-1, C, H, W)
+        feat = self._features(x).view(B, T, self._d)
+    
+        # Add positional encoding before Transformer
+        feat = self.pos_encoder(feat)
+    
+        # Transformer encoder
+        encoded = self.temporal_encoder(feat)
+    
+        # LSTM
+        lstm_out, _ = self.temporal_rnn(encoded)
+    
+        # Classifier
+        out = self._fc(lstm_out)
+        return out
+
+
+    def print_stats(self):
+        total_params = sum(p.numel() for p in self.parameters())
+        trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+
+        print(f"Total parameters: {total_params:,}")
+        print(f"Trainable parameters: {trainable_params:,}")
+
+        try:
+            dummy_input = torch.randn(4, 50, 3, 224, 224).to(next(self.parameters()).device)
+            self.eval()
+            flops = FlopCountAnalysis(self, dummy_input)
+            print(f"FLOPs: {flops.total():,}")
+            print(parameter_count_table(self))
+        except Exception as e:
+            print(f"Could not calculate FLOPs: {e}")
 
 class ImplLSTMs(nn.Module):
     def __init__(self, args=None):
@@ -755,31 +860,33 @@ class SnatcherLSTMTransformerModel(nn.Module):
     def forward(self, x):
         x = x / 255.
         B, T, C, H, W = x.shape
-
+    
         if self.training:
             for i in range(B):
                 x[i] = self.augmentation(x[i])
         for i in range(B):
             x[i] = self.standarization(x[i])
-
+    
         # Visual feature extraction
         x = x.view(-1, C, H, W)
         feat = self._features(x).view(B, T, self._d)
-
+    
         # SnaTCHer-style time conditioning
         time_idx = torch.arange(T, device=feat.device).unsqueeze(0).unsqueeze(-1).float() / 100
         feat = feat + self.pos_enc * time_idx  # Add time-conditioned embedding
-
+    
         # Transformer
         encoded = self.temporal_transformer(feat)  # [B, T, D]
-
+    
         # LSTM
         lstm_out, _ = self.lstm(encoded)  # [B, T, 2*512]
-
+    
         # Final classification
         out = self._fc(lstm_out)  # [B, T, num_classes+1]
-        return out
-  
+        
+        return out
+
+        
     def print_stats(self):
         total_params = sum(p.numel() for p in self.parameters())
         trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -836,29 +943,31 @@ class SnaTCHerTransformerModel(nn.Module):
     def forward(self, x):
         x = x / 255.
         B, T, C, H, W = x.shape
-
+    
         if self.training:
             for i in range(B):
                 x[i] = self.augmentation(x[i])
         for i in range(B):
             x[i] = self.standarization(x[i])
-
+    
         # Visual features
         x = x.view(-1, C, H, W)
         feat = self._features(x).view(B, T, self._d)
-
+    
         # Time encoding: normalized timestep
         time_idx = torch.arange(T, device=feat.device).unsqueeze(0).unsqueeze(-1).float() / 100  # [1, T, 1]
         time_embed = self.pos_enc * time_idx  # [1, T, D]
         feat = feat + time_embed  # [B, T, D]
-
+    
         # Temporal Transformer
         encoded = self.temporal_transformer(feat)
-
+    
         # Classifier
         out = self._fc(encoded)
-        return out
-  
+        
+        return out
+
+        
     def print_stats(self):
         total_params = sum(p.numel() for p in self.parameters())
         trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -893,10 +1002,10 @@ class Model(BaseRGBModel):
             elif args.model_type == "transformer":
                 self._model = TemporalTransformerModel(args)
             else:
-                self._model = X3DLSTM(args)
+                self._model = HybridTransformerLSTMModel2(args)
         else:
             # Default to Transformer model
-            self._model = X3DLSTM(args)
+            self._model = HybridTransformerLSTMModel2(args)
         
         self._model.print_stats()
         self._args = args

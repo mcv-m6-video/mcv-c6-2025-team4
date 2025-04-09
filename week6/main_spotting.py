@@ -193,7 +193,7 @@ def main(args):
     print('START INFERENCE')
     # Evaluation on test split
     map_score, ap_score = evaluate(model, test_data, nms_window = 5)
-
+    print('1')
     # Clases a excluir
     excluded_classes = {"FREE KICK", "GOAL"}
     
