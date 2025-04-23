@@ -1,0 +1,21 @@
+{
+    "frame_dir": "/export/home/c5mcv02/SoccerNet/SN-BAS-2025_frames/597x336", 
+    "save_dir": "/export/home/c5mcv02/CVMasterActionSpotting/SN-BAS-2025_savedata",
+    "labels_dir": "/export/home/c5mcv02/SoccerNet/SN-BAS-2025",
+    "store_mode": "load",
+    "task": "spotting",
+    "batch_size": 4,
+    "clip_len": 50,
+    "stride": 3,
+    "dataset": "soccernetball",
+    "epoch_num_frames": 500000,
+    "feature_arch": "x3d_m",
+    "learning_rate": 0.0008,
+    "num_classes": 12,
+    "num_epochs": 50,
+    "warm_up_epochs": 3,
+    "only_test": false,
+    "device": "cuda",
+    "num_workers": 4,
+    "downscale": 4
+}
